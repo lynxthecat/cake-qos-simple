@@ -1,0 +1,104 @@
+# cake-qos-simple
+
+# This nft script: 
+# 1) classifies DSCPs (to supplement or replace those set by LAN clients); and 
+# 2) stores DSCPs in conntracks for restoration using tc action ctinfo dscp 63 128
+
+# author: Lynx of OpenWrt 
+
+table inet cake-qos-simple
+flush table inet cake-qos-simple
+
+# local interfaces
+define IFACE_NAMES = {
+	br-lan,
+	br-guest
+}
+
+# local MAC addresses to set to bulk (e.g. IoT devices)
+define BULK_MACS = {
+#	XX,
+#	YY
+}
+
+table inet cake-qos-simple {
+
+        chain hook-output {
+
+                type filter hook output priority filter
+
+                # OpenWrt->wan
+                oifname wan goto classify-and-store-dscp
+
+        }
+
+        chain hook-forward {
+
+                type filter hook forward priority filter
+
+                # lan->wan
+                iifname $IFACE_NAMES goto classify-and-store-dscp
+
+        }
+
+	chain hook-postrouting {
+
+		type filter hook postrouting priority filter
+
+		# fix ttl to help disguise use of router over mobile network
+		# for bridge mode set ttl to 64
+		# for USB tethering set ttl to 65
+		
+		oifname wan ip ttl set 65
+	}
+
+	chain classify-and-store-dscp {
+
+		jump classify-dscp
+		jump store-dscp-in-conntrack
+	}
+
+        chain classify-dscp {
+
+		meta l4proto . th dport vmap @rules_proto_dport
+        
+	}
+
+        map rules_proto_dport {
+                type inet_proto . inet_service : verdict
+                elements = {
+			tcp . 53 : goto dscp_set_voice,  # DNS
+                        udp . 53 : goto dscp_set_voice,  # DNS
+                        tcp . 853 : goto dscp_set_voice, # DNS-over-TLS
+                        udp . 853 : goto dscp_set_voice, # DNS-over-TLS
+                        udp . 123 : goto dscp_set_voice  # NTP
+                }
+        }
+
+        # designate packet for cake tin: bulk
+        chain dscp_set_bulk {
+                ip dscp set cs1
+        }
+
+        # designate packet for cake tin: besteffort
+        chain dscp_set_besteffort {
+                ip dscp set cs0
+        }
+
+        # designate packet for cake tin: video
+        chain dscp_set_video {
+                ip dscp set cs2
+        }
+
+        # designate packet for cake tin: voice
+        chain dscp_set_voice {
+                ip dscp set cs4
+        }	
+
+	chain store-dscp-in-conntrack {
+
+                ip version 4 ct mark set (@nh,8,8 & 252) >> 2
+                ip6 version 6 ct mark set (@nh,0,16 & 4032) >> 6
+                ct mark set ct mark or 128
+        }
+}
