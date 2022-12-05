@@ -81,3 +81,11 @@ And then by creating appropriate QoS policies in the Local Group Policy Editor:
       # Second check correct flows and corresponding DSCPs are getting set by router on download
       tcpdump -i ifb-wan -vv
    ``` 
+   
+## VPN
+
+If using a VPN then cake-qos-simple is not appropriate because cake will not see all the flows and so flow fairness will not work properly. Instead check out the following alternatives to deal with mixture of encrypted and unencrypted flows:
+
+https://github.com/lynxthecat/cake-dual-ifb
+
+https://github.com/lynxthecat/cake-wg-pbr
