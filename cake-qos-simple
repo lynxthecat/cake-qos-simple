@@ -1,0 +1,45 @@
+#!/bin/sh /etc/rc.common
+
+# cake-qos-simple
+
+# This shell script:
+# 1) sets up an intermediate functional block for use with wan ingress (ifb-wan); and
+# 2) redirects packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
+# 3) sets up cake on wan egress (for upload) and on ifb-wan (for download)
+
+# DSCPs must be: 
+# a) written to packets on upload by LAN clients or router (e.g. using cake-qos-simple.nft or otherwise); and
+# b) written to conntracks on upload for restoration on download
+
+# This leverages the connection tracking capability in Linux thereby to facilitate simple 
+# use of cake's diffserv capability for improving qos when bandwidth is constrained.
+
+# author: Lynx of OpenWrt
+
+exec &> /var/log/cake.log
+
+START=91
+STOP=4
+
+start() 
+{
+	ip link add name ifb-wan type ifb
+	ip link set ifb-wan up
+
+	tc qdisc add dev wan handle ffff: ingress
+	
+	tc filter add dev wan parent ffff: protocol ip matchall action ctinfo dscp 63 128 action mirred egress redirect dev ifb-wan
+
+	tc qdisc add dev wan root cake bandwidth 10Mbit diffserv4 dual-srchost nonat wash no-ack-filter noatm overhead 0
+	tc qdisc add dev ifb-wan root cake bandwidth 10Mbit diffserv4 dual-dsthost nonat nowash ingress no-ack-filter noatm overhead 0
+}
+
+stop() 
+{
+	tc qdisc del dev wan ingress
+	tc qdisc del dev wan root
+        tc qdisc del dev ifb-wan root
+        ip link set ifb-wan down
+        ip link del ifb-wan
+} 
+
