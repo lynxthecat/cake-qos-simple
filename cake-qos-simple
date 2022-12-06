@@ -2,19 +2,22 @@
 
 # cake-qos-simple
 
-# This shell script:
+# author: Lynx of OpenWrt
+
+# This simple shell script:
 # 1) sets up an intermediate functional block for use with wan ingress (ifb-wan); and
-# 2) redirects packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
+# 2) mirrors packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
 # 3) sets up cake on wan egress (for upload) and on ifb-wan (for download)
 
-# DSCPs must be: 
-# a) written to packets on upload by LAN clients or router (e.g. using cake-qos-simple.nft or otherwise); and
+# This facilitates the optional use of the diffserv functionality in cake for improving qos when
+# bandwidth is contrained is contrained by leveraging the connection trability in Linux. 
+
+# To make use of this optional diffserv functionality, DSCPs must be: 
+# a) written to packets on upload by LAN clients or route; and
 # b) written to conntracks on upload for restoration on download
 
-# This leverages the connection tracking capability in Linux thereby to facilitate simple 
-# use of cake's diffserv capability for improving qos when bandwidth is constrained.
-
-# author: Lynx of OpenWrt
+# Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using
+# 'tc -s qdisc show dev wan' and 'tc -s qdisc show dev ifb-wan' to inspect the tinning in cake
 
 exec &> /var/log/cake.log
 
@@ -28,8 +31,10 @@ start()
 
 	tc qdisc add dev wan handle ffff: ingress
 	
+	# For each wan ingress packet conditionally restore DSCP from conntrack if available and mirror to ifb-wan
 	tc filter add dev wan parent ffff: protocol ip matchall action ctinfo dscp 63 128 action mirred egress redirect dev ifb-wan
 
+	# These lines set up the cake instances and must be modified for desired operation including cake bandwidths
 	tc qdisc add dev wan root cake bandwidth 10Mbit diffserv4 dual-srchost nonat wash no-ack-filter noatm overhead 0
 	tc qdisc add dev ifb-wan root cake bandwidth 10Mbit diffserv4 dual-dsthost nonat nowash ingress no-ack-filter noatm overhead 0
 }
