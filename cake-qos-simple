@@ -19,7 +19,7 @@
 # Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using
 # 'tc -s qdisc show dev wan' and 'tc -s qdisc show dev ifb-wan' to inspect the tinning in cake
 
-exec &> /var/log/cake.log
+exec &> /var/log/cake-qos-simple.log
 
 START=91
 STOP=4
