@@ -61,6 +61,9 @@ table inet cake-qos-simple {
         chain classify-dscp {
 
 		meta l4proto . th dport vmap @rules_proto_dport
+	
+		# IoT devices (put mac addresses here)
+                ether saddr $BULK_MACS goto dscp_set_bulk
         
 	}
 
