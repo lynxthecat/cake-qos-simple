@@ -16,10 +16,10 @@ define IFACE_NAMES = {
 }
 
 # local MAC addresses to set to bulk (e.g. IoT devices)
-define BULK_MACS = {
+#define BULK_MACS = {
 #	XX,
 #	YY
-}
+#}
 
 table inet cake-qos-simple {
 
@@ -62,8 +62,8 @@ table inet cake-qos-simple {
 
 		meta l4proto . th dport vmap @rules_proto_dport
 	
-		# IoT devices (put mac addresses here)
-                ether saddr $BULK_MACS goto dscp_set_bulk
+		# IoT devices (uncomment to use)
+                # ether saddr $BULK_MACS goto dscp_set_bulk
         
 	}
 
