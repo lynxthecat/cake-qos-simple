@@ -36,10 +36,11 @@ dl_if=ifb-${ul_if}
 START=91
 STOP=4
 
-EXTRA_COMMANDS="upload download"
+EXTRA_COMMANDS="status upload download"
 EXTRA_HELP="	
 	cake-qos-simple custom commands:
 
+	status		show status summary
 	upload		show stats for upload interface
 	download	show stats for download interface"
 
@@ -56,6 +57,8 @@ start()
 	# These lines set up the cake instances and must be modified for desired operation including cake bandwidths
 	tc qdisc add dev ${ul_if} root cake bandwidth ${cake_ul_rate_Mbps}Mbit ${cake_ul_options}
 	tc qdisc add dev ${dl_if} root cake bandwidth ${cake_dl_rate_Mbps}Mbit ${cake_dl_options}
+
+	logger -t cake-qos-simple "Started cake-qos-simple."
 }
 
 stop() 
@@ -65,7 +68,14 @@ stop()
         tc qdisc del dev ${dl_if} root
         ip link set ${dl_if} down
         ip link del ${dl_if}
+	
+	logger -t cake-qos-simple "Stopped cake-qos-simple."
 } 
+
+status()
+{
+	tc qdisc ls
+}
 
 upload() 
 {
