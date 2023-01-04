@@ -82,9 +82,9 @@ stop()
 {
 	
 		
-	printf "Removing ingress handle on ${ul_if}\n"
+	printf "Removing ingress handle on ${ul_if}.\n"
 	tc qdisc del dev ${ul_if} ingress
-	printf "\nRemoving CAKE on ${ul_if}\n"
+	printf "\nRemoving CAKE on ${ul_if}.\n"
 	tc qdisc del dev ${ul_if} root
 
 	if [[ -z ${dl_if} ]]; then	
