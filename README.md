@@ -44,6 +44,7 @@ To install:
 - install requisite packages as required
 - place cake-qos-simple in /etc/init.d
 - chmod +x cake-qos-simple
+- edit configuration lines in cake-qos-simple to set interface(s) and CAKE parameters
 - place 11-cake-qos-simple in /etc/hotplug.d/iface/
 - chmod +x 11-cake-qos-simple
 - place cake-qos-simple.nft in /usr/share/nftables.d/ruleset-post/
