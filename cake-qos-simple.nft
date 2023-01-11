@@ -4,7 +4,7 @@
 # 1) classifies DSCPs (to supplement or replace those set by LAN clients); and 
 # 2) stores DSCPs in conntracks for restoration using tc action ctinfo dscp 63 128
 
-# author: Lynx of OpenWrt 
+# author: Lynx (OpenWrt forum)
 
 table inet cake-qos-simple
 flush table inet cake-qos-simple
@@ -40,17 +40,6 @@ table inet cake-qos-simple {
                 iifname $IFACE_NAMES goto classify-and-store-dscp
 
         }
-
-	chain hook-postrouting {
-
-		type filter hook postrouting priority filter
-
-		# fix ttl to help disguise use of router over mobile network
-		# for bridge mode set ttl to 64
-		# for USB tethering set ttl to 65
-		
-		oifname wan ip ttl set 65
-	}
 
 	chain classify-and-store-dscp {
 
