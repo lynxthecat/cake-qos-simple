@@ -2,7 +2,7 @@
 
 # cake-qos-simple
 
-# author: Lynx of OpenWrt
+# author: Lynx (OpenWrt forum)
 
 # This simple shell script:
 # 1) sets up an intermediate functional block for use with wan ingress (ifb-wan); and
