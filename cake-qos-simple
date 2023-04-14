@@ -24,8 +24,8 @@
 ul_if=wan # upload interface 
 dl_if=""  # download interface override (normally left blank and IFB derived for $ul_if ingress)
 
-cake_ul_rate_Mbps=20 # cake upload rate in Mbit/s
-cake_dl_rate_Mbps=20 # cake download rate in Mbit/s
+cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
+cake_dl_rate_Mbps=7.5 # cake download rate in Mbit/s
 
 cake_ul_options="diffserv4 dual-srchost nonat wash no-ack-filter noatm overhead 0"
 cake_dl_options="diffserv4 dual-dsthost nonat nowash ingress no-ack-filter noatm overhead 0"
@@ -80,8 +80,6 @@ start()
 
 stop() 
 {
-	
-		
 	printf "Removing ingress handle on ${ul_if}.\n"
 	tc qdisc del dev ${ul_if} ingress
 	printf "\nRemoving CAKE on ${ul_if}.\n"
@@ -95,12 +93,13 @@ stop()
 	        ip link set ${dl_if} down
 		printf "\nRemoving IFB interface ${dl_if}.\n"
 		ip link del ${dl_if}
+		dl_if=""
 	else 
 		printf "\nRemoving CAKE on ${dl_if}.\n"
 		tc qdisc del dev ${dl_if} root
 	fi
 
-	printf "\nStopped cake-qos-simple.\n"
+	printf "\nStopped cake-qos-simple.\n\n"
 	logger -t cake-qos-simple "Stopped cake-qos-simple."
 } 
 
