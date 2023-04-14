@@ -49,6 +49,7 @@ To install:
 - chmod +x 11-cake-qos-simple
 - place cake-qos-simple.nft in /usr/share/nftables.d/ruleset-post/
 - edit cake-dual-ifb.nft for your use case 
+- service firewall restart
 - verify interfaces (e.g. replace or delete br-lan / br-guest lines as required)
 
 ### To setup DSCP setting by the router ###
