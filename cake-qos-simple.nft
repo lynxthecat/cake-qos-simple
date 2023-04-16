@@ -7,7 +7,7 @@
 # author: Lynx (OpenWrt forum)
 
 table inet cake-qos-simple
-flush table inet cake-qos-simple
+delete table inet cake-qos-simple
 
 # local interfaces
 define IFACE_NAMES = {
