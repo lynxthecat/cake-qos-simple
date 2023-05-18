@@ -27,8 +27,8 @@ dl_if=""  # download interface override (normally left blank and IFB derived for
 cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
 cake_dl_rate_Mbps=7.5 # cake download rate in Mbit/s
 
-cake_ul_options="diffserv4 dual-srchost nonat wash no-ack-filter noatm overhead 0"
-cake_dl_options="diffserv4 dual-dsthost nonat nowash ingress no-ack-filter noatm overhead 0"
+cake_ul_options="diffserv4 dual-srchost nat wash no-ack-filter noatm overhead 0"
+cake_dl_options="diffserv4 dual-dsthost nat nowash ingress no-ack-filter noatm overhead 0"
 
 # end of cake-qos-simple configuration options
 
