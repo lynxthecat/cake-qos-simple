@@ -26,31 +26,53 @@ This nftables script provides a template for classifying DSCPs in the router and
 
 Source: https://wiki.nftables.org/wiki-nftables/index.php/Netfilter_hooks
 
-## Required packages
+## Pre-requisites
+To use this script, you need to install these packages with OpenWrt 22.03.X / New Snapshot builds.
 
-This script requires at least the following packages:
+* tc-tiny
+* kmod-ifb
+* kmod-sched
+* kmod-sched-core
+* kmod-sched-cake
+* kmod-sched-ctinfo
+* nano
 
-- **tc-tiny**
-- **kmod-ifb**
-- **kmod-sched**
-- **kmod-sched-core**
-- **kmod-sched-cake**
-- **kmod-sched-ctinfo**
+Copy and paste this into your SSH client:
+```
+opkg update && opkg install tc-tiny kmod-ifb kmod-sched kmod-sched-core kmod-sched-cake kmod-sched-ctinfo nano
+```
 
-## Installation on OpenWrt
+## Install
+Copy and paste this one by one into your SSH client:
+```
+wget -O /etc/init.d/cake-qos-simple "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/main/cake-qos-simple"
+wget -O /etc/hotplug.d/iface/11-cake-qos-simple "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/main/11-cake-qos-simple"
+mkdir /usr/share/nftables.d/ruleset-post/
+wget -O /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/main/cake-qos-simple.nft"
+service firewall restart
+nano /etc/init.d/cake-qos-simple
+```
 
-To install:
+edit configuration lines in cake-qos-simple to set interface(s) and CAKE parameters
+```
+cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
+cake_dl_rate_Mbps=7.5 # cake download rate in Mbit/s
+```
 
-- install requisite packages as required
-- place cake-qos-simple in /etc/init.d
-- chmod +x cake-qos-simple
-- edit configuration lines in cake-qos-simple to set interface(s) and CAKE parameters
-- place 11-cake-qos-simple in /etc/hotplug.d/iface/
-- chmod +x 11-cake-qos-simple
-- place cake-qos-simple.nft in /usr/share/nftables.d/ruleset-post/
-- edit cake-dual-ifb.nft for your use case 
-- service firewall restart
-- verify interfaces (e.g. replace or delete br-lan / br-guest lines as required)
+Afther editing configuration lines in cake-qos-simple:
+```
+# Start cake-qos-simple
+/etc/init.d/cake-qos-simple start
+
+# Stop cake-qos-simple
+/etc/init.d/cake-qos-simple stop
+
+# Check Download cake-qos-simple
+/etc/init.d/cake-qos-simple download
+
+# Check Download cake-qos-simple
+/etc/init.d/cake-qos-simple upload
+```
 
 ### To setup DSCP setting by the router ###
 
