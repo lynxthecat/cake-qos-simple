@@ -119,7 +119,7 @@ So e.g.:
 /etc/init.d/cake-qos-simple upload
 
 # Check status
-/etc/init.d/cake-qos-simple upload
+/etc/init.d/cake-qos-simple status
 ```
 
 ### To setup DSCP setting by the router ###
