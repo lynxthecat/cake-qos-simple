@@ -52,6 +52,76 @@ To install:
 - service firewall restart
 - verify interfaces (e.g. replace or delete br-lan / br-guest lines as required)
 
+Here is a guide to completing the above steps in your SSH client.
+
+Firstly, install the requisite packages:
+```
+opkg update && opkg install tc-tiny kmod-ifb kmod-sched kmod-sched-core kmod-sched-cake kmod-sched-ctinfo
+```
+
+Next, obtain the service script 'cake-qos-simple':
+```
+wget -O /etc/init.d/cake-qos-simple "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/cake-qos-simple"
+```
+
+Now edit the cake-qos-simple service script to set interface(s) and CAKE parameters:
+```
+vi /etc/init.d/cake-qos-simple
+```
+
+Next, install the hotplug script and nftables file:
+```
+wget -O /etc/hotplug.d/iface/11-cake-qos-simple "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/11-cake-qos-simple"
+mkdir /usr/share/nftables.d/ruleset-post/
+wget -O /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/cake-qos-simple.nft"
+```
+
+Now edit the nftables file as required:
+```
+vi /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft
+```
+
+And to use cake-qos-simple - see
+
+```
+root@OpenWrt-1:~# service cake-qos-simple
+Syntax: /etc/init.d/cake-qos-simple [command]
+
+Available commands:
+        start           Start the service
+        stop            Stop the service
+        restart         Restart the service
+        reload          Reload configuration files (or restart if service does not implement reload)
+        enable          Enable service autostart
+        disable         Disable service autostart
+        enabled         Check if service is started on boot
+
+        cake-qos-simple custom commands:
+
+        status          show status summary
+        upload          show stats for upload interface
+        download        show stats for download interface
+ ```
+
+So e.g.:
+
+```
+# Start cake-qos-simple
+/etc/init.d/cake-qos-simple start
+
+# Stop cake-qos-simple
+/etc/init.d/cake-qos-simple stop
+
+# Check download stats
+/etc/init.d/cake-qos-simple download
+
+# Check upload stats
+/etc/init.d/cake-qos-simple upload
+
+# Check status
+/etc/init.d/cake-qos-simple upload
+```
+
 ### To setup DSCP setting by the router ###
 
 - amend cake-qos-simple.nft as appropriate
