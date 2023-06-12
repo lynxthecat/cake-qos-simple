@@ -25,7 +25,7 @@ ul_if=wan # upload interface
 dl_if=""  # download interface override (normally left blank and IFB derived for $ul_if ingress)
 
 cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
-cake_dl_rate_Mbps=7.5 # cake download rate in Mbit/s
+cake_dl_rate_Mbps=20 # cake download rate in Mbit/s
 
 cake_ul_options="diffserv4 dual-srchost nat wash no-ack-filter noatm overhead 0"
 cake_dl_options="diffserv4 dual-dsthost nat nowash ingress no-ack-filter noatm overhead 0"
@@ -45,7 +45,7 @@ EXTRA_HELP="
 
 start() 
 {
-	printf "Setting up ingress handle for dev ${ul_if}.\n"
+	printf "Setting up ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc add dev ${ul_if} handle ffff: ingress
 	
 	# If no dl_if specified, then create appropriate IFB and redirect ingress on $ul_if thereto
@@ -53,12 +53,12 @@ start()
 
 		printf "\nNo dl_if specified, so setting up appropriate IFB.\n"
 		dl_if=ifb-${ul_if}
-		printf "\nCreating IFB device: ${dl_if}.\n"
+		printf "\nCreating IFB device: '${dl_if}'.\n"
 		ip link add name ${dl_if} type ifb
-		printf "\nSetting interface ${dl_if} up.\n"
+		printf "\nSetting interface: '${dl_if}' up.\n"
 		ip link set ${dl_if} up
 		# For each upload interface ingress packet conditionally restore DSCP from conntrack if available and redirect to IFB
-		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface ${ul_if} and redirecting to IFB interface ${dl_if}.\n"
+		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface: '${ul_if}' and redirecting to IFB interface: '${dl_if}'.\n"
 		tc filter add dev ${ul_if} parent ffff: protocol ip matchall action ctinfo dscp 63 128 action mirred egress redirect dev $dl_if
 
 	# If $dl_if specified, then skip IFB creation
@@ -69,9 +69,9 @@ start()
 	fi
 
 	# These lines set up the cake instances and must be modified for desired operation including cake bandwidths
-	printf "\nSetting up CAKE on interface ${ul_if} with bandwidth ${cake_ul_rate_Mbps}Mbit/s and options: ${cake_ul_options}.\n"
+	printf "\nSetting up CAKE on interface: '${ul_if}' with bandwidth: '${cake_ul_rate_Mbps}Mbit/s' and options: '${cake_ul_options}'.\n"
 	tc qdisc add dev ${ul_if} root cake bandwidth ${cake_ul_rate_Mbps}Mbit ${cake_ul_options}
-	printf "\nSetting up CAKE on interface ${dl_if} with bandwidth ${cake_dl_rate_Mbps}Mbit/s and options: ${cake_dl_options}.\n"
+	printf "\nSetting up CAKE on interface: '${dl_if}' with bandwidth: '${cake_dl_rate_Mbps}Mbit/s' and options: '${cake_dl_options}'.\n"
 	tc qdisc add dev ${dl_if} root cake bandwidth ${cake_dl_rate_Mbps}Mbit ${cake_dl_options}
 
 	printf "\nStarted cake-qos-simple.\n"	
@@ -80,22 +80,22 @@ start()
 
 stop() 
 {
-	printf "Removing ingress handle on ${ul_if}.\n"
+	printf "Removing ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc del dev ${ul_if} ingress
-	printf "\nRemoving CAKE on ${ul_if}.\n"
+	printf "\nRemoving CAKE on interface: '${ul_if}'.\n"
 	tc qdisc del dev ${ul_if} root
 
 	if [[ -z ${dl_if} ]]; then	
 		dl_if=ifb-${ul_if}
-		printf "\nRemoving CAKE on ${dl_if}.\n"
+		printf "\nRemoving CAKE on interface: '${dl_if}'.\n"
 		tc qdisc del dev ${dl_if} root
-		printf "\nSetting IFB interface ${dl_if} down.\n"
+		printf "\nSetting IFB interface: '${dl_if}' down.\n"
 	        ip link set ${dl_if} down
-		printf "\nRemoving IFB interface ${dl_if}.\n"
+		printf "\nRemoving IFB interface: '${dl_if}'.\n"
 		ip link del ${dl_if}
 		dl_if=""
 	else 
-		printf "\nRemoving CAKE on ${dl_if}.\n"
+		printf "\nRemoving CAKE on: '${dl_if}'.\n"
 		tc qdisc del dev ${dl_if} root
 	fi
 
