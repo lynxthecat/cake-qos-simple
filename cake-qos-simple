@@ -27,8 +27,8 @@ dl_if=""  # download interface override (normally left blank and IFB derived for
 cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
 cake_dl_rate_Mbps=20 # cake download rate in Mbit/s
 
-cake_ul_options="diffserv4 dual-srchost nat wash no-ack-filter noatm overhead 0"
-cake_dl_options="diffserv4 dual-dsthost nat nowash ingress no-ack-filter noatm overhead 0"
+cake_ul_options="diffserv4 triple-isolate nat wash ack-filter noatm overhead 0"
+cake_dl_options="diffserv4 triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
 
 # end of cake-qos-simple configuration options
 
@@ -59,7 +59,7 @@ start()
 		ip link set ${dl_if} up
 		# For each upload interface ingress packet conditionally restore DSCP from conntrack if available and redirect to IFB
 		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface: '${ul_if}' and redirecting to IFB interface: '${dl_if}'.\n"
-		tc filter add dev ${ul_if} parent ffff: protocol ip matchall action ctinfo dscp 63 128 action mirred egress redirect dev $dl_if
+		tc filter add dev ${ul_if} parent ffff: protocol ip matchall action ctinfo dscp 63 128 action mirred egress redirect dev ${dl_if}
 
 	# If $dl_if specified, then skip IFB creation
 	else
@@ -110,11 +110,11 @@ status()
 
 upload() 
 {
-	tc -s qdisc show dev $ul_if
+	tc -s qdisc show dev ${ul_if}
 }
 
 download()
 {
 	[[ -z ${dl_if} ]] && dl_if=ifb-${ul_if}
-	tc -s qdisc show dev $dl_if
+	tc -s qdisc show dev ${dl_if}
 }
