@@ -9,9 +9,10 @@ cake-qos-simple sets up instances of cake based on wan egress and ingress and pr
 
 The service file 'cake-qos-simple':
 
-1) sets up an intermediate functional block for use with wan ingress (ifb-wan); and
-2) redirects packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
-3) sets up cake on wan egress (for upload) and on ifb-wan (for download)
+1) sets up an intermediate functional block for use with wan ingress (ifb-wan);
+2) redirects packets from wan ingress to ifb-wan having restored DSCPs from the conntracks;
+3) optionally overwrites ecn bits on upload and/or download; and
+4) sets up cake on wan egress (for upload) and on ifb-wan (for download).
 
 DSCPs must be:
 
@@ -121,6 +122,25 @@ So e.g.:
 # Check status
 /etc/init.d/cake-qos-simple status
 ```
+
+### Overwriting ECN bits ###
+
+There are situations in which it is desirable to prevent cake from marking rather than dropping packets. 
+
+Firstly, see discussion on OpenWrt forums around [here](https://forum.openwrt.org/t/effect-of-set-tcp-ecn-to-off-on-ecn/63921/13). 
+
+Secondly, whenever an ISP bleaches ECN bits (which is common for mobile operators), the bleaching occurs prior to cake on download, but after cake on upload - thus cake is blind to the bleaching in the upload direction, and this means that by default cake will mark packets on upload in response to saturation, which is futile because the ISP ultimately bleaches those markings anyway. So in this situation it strikes me as better to proactively scrub the ECN bits on upload before cake sees the packets to prevent cake form ineffectively marking the ECN bits.
+
+cake-qos-simple facilitates overwriting ECN bits before the cake instances see the packets on upload and/or download. 
+
+This is controlled by setting appropriate values for:
+
+```
+overwrite_ecn_val_ul=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+overwrite_ecn_val_dl=0 # overwirte existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+```
+
+
 
 ### To setup DSCP setting by the router ###
 
