@@ -2,7 +2,7 @@
 
 # cake-qos-simple
 
-# author: Lynx (OpenWrt forum)
+# author: Lynx
 
 # This simple shell script:
 # 1) sets up an intermediate functional block for use with wan ingress (ifb-wan); and
@@ -64,13 +64,13 @@ start()
 		ip link set "${dl_if}" up
 		# For each upload interface ingress packet conditionally restore DSCP from conntrack if available and redirect to IFB
 		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface: '${ul_if}' and redirecting to IFB interface: '${dl_if}'.\n"
-		tc filter add dev "${ul_if}" parent ffff: protocol ip matchall action ctinfo dscp 63 128 mirred egress redirect dev "${dl_if}"
+		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 128 mirred egress redirect dev "${dl_if}"
 
 	# If $dl_if specified, then skip IFB creation
 	else
 		# For each upload interface ingress packet conditionally restore DSCP from conntrack if available
 		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface '${ul_if}'.\n"
-		tc filter add dev "${ul_if}" parent ffff: protocol ip matchall action ctinfo dscp 63 128
+		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 128
 	fi
 
 	printf "\nSetting up CAKE on interface: '${ul_if}' with bandwidth: '${cake_ul_rate_Mbps}Mbit/s' and options: '${cake_ul_options}'.\n"
@@ -80,6 +80,7 @@ start()
 	then
 		printf "\nSetting up filter to overwrite ecn bits to decimal value: '${overwrite_ecn_val_ul}' on upload.\n"
 		tc filter add dev "${ul_if}" parent 1: protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_ul}" retain 0x3
+		tc filter add dev "${ul_if}" parent 1: protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_ul}" retain 0x3
 	fi
 
 	printf "\nSetting up CAKE on interface: '${dl_if}' with bandwidth: '${cake_dl_rate_Mbps}Mbit/s' and options: '${cake_dl_options}'.\n"
@@ -89,6 +90,7 @@ start()
 	then
 		printf "\nSetting up filter to overwrite ecn bits to decimal value: '${overwrite_ecn_val_dl}' on download.\n"
 		tc filter add dev "${dl_if}" parent 1: protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_dl}" retain 0x3
+		tc filter add dev "${dl_if}" parent 1: protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_dl}" retain 0x3
 	fi
 
 	printf "\nStarted cake-qos-simple.\n"	
@@ -102,7 +104,7 @@ stop()
 	printf "\nRemoving CAKE on interface: '${ul_if}'.\n"
 	tc qdisc del dev "${ul_if}" root
 
-	if [[ -z ${dl_if} ]]
+	if [[ -z "${dl_if}" ]]
 	then	
 		dl_if="ifb-${ul_if}"
 		printf "\nRemoving CAKE on interface: '${dl_if}'.\n"
@@ -128,11 +130,11 @@ status()
 
 upload() 
 {
-	tc -s qdisc show dev ${ul_if}
+	tc -s qdisc show dev "${ul_if}"
 }
 
 download()
 {
-	[[ -z ${dl_if} ]] && dl_if=ifb-${ul_if}
-	tc -s qdisc show dev ${dl_if}
+	[[ -z "${dl_if}" ]] && dl_if="ifb-${ul_if}"
+	tc -s qdisc show dev "${dl_if}"
 }
