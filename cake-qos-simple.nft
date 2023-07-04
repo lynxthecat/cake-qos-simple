@@ -70,21 +70,25 @@ table inet cake-qos-simple {
         # designate packet for cake tin: bulk
         chain dscp_set_bulk {
                 ip dscp set cs1
+		ip6 dscp set cs1
         }
 
         # designate packet for cake tin: besteffort
         chain dscp_set_besteffort {
                 ip dscp set cs0
+		ip6 dscp set cs0
         }
 
         # designate packet for cake tin: video
         chain dscp_set_video {
                 ip dscp set cs2
+		ip6 dscp set cs2
         }
 
         # designate packet for cake tin: voice
         chain dscp_set_voice {
                 ip dscp set cs4
+		ip6 dscp set cs4
         }	
 
 	chain store-dscp-in-conntrack {
