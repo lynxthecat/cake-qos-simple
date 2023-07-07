@@ -49,7 +49,9 @@ To install:
 - place 11-cake-qos-simple in /etc/hotplug.d/iface/
 - chmod +x 11-cake-qos-simple
 - place cake-qos-simple.nft in /usr/share/nftables.d/ruleset-post/
-- edit cake-dual-ifb.nft for your use case 
+- edit cake-qos-simple.nft for your use case
+- service cake-qos-simple enable
+- service cake-qos-simple start
 - service firewall restart
 - verify interfaces (e.g. replace or delete br-lan / br-guest lines as required)
 
@@ -80,6 +82,11 @@ wget -O /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft "https://raw.gith
 Now edit the nftables file as required:
 ```
 vi /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft
+```
+
+Check for errors before restarting the firewall:
+```
+nft -c -f /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft
 ```
 
 And to use cake-qos-simple - see
