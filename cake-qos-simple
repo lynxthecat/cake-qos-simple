@@ -11,7 +11,7 @@
 # 4) sets up cake on wan egress (for upload) and on ifb-wan (for download)
 
 # This facilitates the optional use of the diffserv functionality in cake for improving qos when
-# bandwidth is contrained is contrained by leveraging the connection trability in Linux.
+# bandwidth is constrained by leveraging connection tracking (conntrack) in Linux.
 
 # To make use of this optional diffserv functionality, DSCPs must be:
 # a) written to packets on upload by LAN clients or route; and
