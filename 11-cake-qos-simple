@@ -2,6 +2,6 @@
 
 [ -n "$DEVICE" ] || exit 0
 
-[ "$ACTION" = ifup ] && /etc/init.d/cake-qos-simple stop && /etc/init.d/cake-qos-simple start
+[ "$ACTION" = ifup ] && /etc/init.d/cake-qos-simple enabled && /etc/init.d/cake-qos-simple stop && /etc/init.d/cake-qos-simple start
 
-[ "$ACTION" = ifdown ] && /etc/init.d/cake-qos-simple stop
+[ "$ACTION" = ifdown ] && /etc/init.d/cake-qos-simple enabled && /etc/init.d/cake-qos-simple stop
