@@ -1,7 +1,7 @@
 # cake-qos-simple
 
-# This nft script: 
-# 1) classifies DSCPs (to supplement or replace those set by LAN clients); and 
+# This nft script:
+# 1) classifies DSCPs (to supplement or replace those set by LAN clients); and
 # 2) stores DSCPs in conntracks for restoration using tc action ctinfo dscp 63 128
 
 # author: Lynx (OpenWrt forum)
@@ -50,10 +50,10 @@ table inet cake-qos-simple {
         chain classify-dscp {
 
 		meta l4proto . th dport vmap @rules_proto_dport
-	
+
 		# IoT devices (uncomment to use)
                 # ether saddr $BULK_MACS goto dscp_set_bulk
-        
+
 	}
 
         map rules_proto_dport {
@@ -89,7 +89,7 @@ table inet cake-qos-simple {
         chain dscp_set_voice {
                 ip dscp set cs4
 		ip6 dscp set cs4
-        }	
+        }
 
 	chain store-dscp-in-conntrack {
 

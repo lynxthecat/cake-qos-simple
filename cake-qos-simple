@@ -11,9 +11,9 @@
 # 4) sets up cake on wan egress (for upload) and on ifb-wan (for download)
 
 # This facilitates the optional use of the diffserv functionality in cake for improving qos when
-# bandwidth is contrained is contrained by leveraging the connection trability in Linux. 
+# bandwidth is contrained is contrained by leveraging the connection trability in Linux.
 
-# To make use of this optional diffserv functionality, DSCPs must be: 
+# To make use of this optional diffserv functionality, DSCPs must be:
 # a) written to packets on upload by LAN clients or route; and
 # b) written to conntracks on upload for restoration on download
 
@@ -22,7 +22,7 @@
 
 # cake-qos-simple configuration options:
 
-ul_if=wan # upload interface 
+ul_if=wan # upload interface
 dl_if=""  # download interface override (normally left blank and IFB derived for $ul_if ingress)
 
 cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
@@ -40,18 +40,18 @@ START=91
 STOP=4
 
 EXTRA_COMMANDS="status upload download"
-EXTRA_HELP="	
+EXTRA_HELP="
 	cake-qos-simple custom commands:
 
 	status		show status summary
 	upload		show stats for upload interface
 	download	show stats for download interface"
 
-start() 
+start()
 {
 	printf "Setting up ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc add dev "${ul_if}" handle ffff: ingress
-	
+
 	# If no dl_if specified, then create appropriate IFB and redirect ingress on $ul_if thereto
 	if [[ -z "${dl_if}" ]]
 	then
@@ -93,11 +93,11 @@ start()
 		tc filter add dev "${dl_if}" parent 1: protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_dl}" retain 0x3
 	fi
 
-	printf "\nStarted cake-qos-simple.\n"	
+	printf "\nStarted cake-qos-simple.\n"
 	logger -t cake-qos-simple "Started cake-qos-simple."
 }
 
-stop() 
+stop()
 {
 	printf "Removing ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc del dev "${ul_if}" ingress
@@ -105,7 +105,7 @@ stop()
 	tc qdisc del dev "${ul_if}" root
 
 	if [[ -z "${dl_if}" ]]
-	then	
+	then
 		dl_if="ifb-${ul_if}"
 		printf "\nRemoving CAKE on interface: '${dl_if}'.\n"
 		tc qdisc del dev "${dl_if}" root
@@ -114,21 +114,21 @@ stop()
 		printf "\nRemoving IFB interface: '${dl_if}'.\n"
 		ip link del "${dl_if}"
 		dl_if=""
-	else 
+	else
 		printf "\nRemoving CAKE on: '${dl_if}'.\n"
 		tc qdisc del dev "${dl_if}" root
 	fi
 
 	printf "\nStopped cake-qos-simple.\n\n"
 	logger -t cake-qos-simple "Stopped cake-qos-simple."
-} 
+}
 
 status()
 {
 	tc qdisc ls
 }
 
-upload() 
+upload()
 {
 	tc -s qdisc show dev "${ul_if}"
 }
