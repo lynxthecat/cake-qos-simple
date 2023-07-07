@@ -28,7 +28,7 @@ table inet cake-qos-simple {
                 type filter hook output priority filter
 
                 # OpenWrt->wan
-                oifname wan goto classify-and-store-dscp
+                oifname wan ct mark & 128 == 0 goto classify-and-store-dscp
 
         }
 
@@ -37,7 +37,7 @@ table inet cake-qos-simple {
                 type filter hook forward priority filter
 
                 # lan->wan
-                iifname $IFACE_NAMES goto classify-and-store-dscp
+                iifname $IFACE_NAMES ct mark & 128 == 0 goto classify-and-store-dscp
 
         }
 

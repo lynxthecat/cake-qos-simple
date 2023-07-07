@@ -76,6 +76,9 @@ start()
 	printf "\nSetting up CAKE on interface: '${ul_if}' with bandwidth: '${cake_ul_rate_Mbps}Mbit/s' and options: '${cake_ul_options}'.\n"
 	tc qdisc add dev "${ul_if}" root handle 1: cake bandwidth "${cake_ul_rate_Mbps}Mbit" ${cake_ul_options}
 
+	printf "\nSetting up tc filter to restore DSCPs from conntrack on egress packets on interface '${ul_if}'.\n"
+	tc filter add dev "${ul_if}" matchall action ctinfo dscp 63 128
+
 	if [[ -n "${overwrite_ecn_val_ul}" ]]
 	then
 		printf "\nSetting up filter to overwrite ecn bits to decimal value: '${overwrite_ecn_val_ul}' on upload.\n"
