@@ -23,21 +23,12 @@ define IFACE_NAMES = {
 
 table inet cake-qos-simple {
 
-        chain hook-output {
+        chain hook-postrouting {
 
-                type filter hook output priority filter
+                type filter hook postrouting priority filter
 
-                # OpenWrt->wan
+                # All egress traffic to WAN
                 oifname wan ct mark & 128 == 0 goto classify-and-store-dscp
-
-        }
-
-        chain hook-forward {
-
-                type filter hook forward priority filter
-
-                # lan->wan
-                iifname $IFACE_NAMES ct mark & 128 == 0 goto classify-and-store-dscp
 
         }
 
