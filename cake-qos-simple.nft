@@ -1,7 +1,7 @@
 # cake-qos-simple
 
-# This nft script: 
-# 1) classifies DSCPs (to supplement or replace those set by LAN clients); and 
+# This nft script:
+# 1) classifies DSCPs (to supplement or replace those set by LAN clients); and
 # 2) stores DSCPs in conntracks for restoration using tc action ctinfo dscp 63 128
 
 # author: Lynx (OpenWrt forum)
@@ -23,21 +23,12 @@ define IFACE_NAMES = {
 
 table inet cake-qos-simple {
 
-        chain hook-output {
+        chain hook-postrouting {
 
-                type filter hook output priority filter
+                type filter hook postrouting priority mangle + 1
 
-                # OpenWrt->wan
-                oifname wan goto classify-and-store-dscp
-
-        }
-
-        chain hook-forward {
-
-                type filter hook forward priority filter
-
-                # lan->wan
-                iifname $IFACE_NAMES goto classify-and-store-dscp
+                # All egress traffic to WAN
+                oifname wan ct mark & 128 == 0 goto classify-and-store-dscp
 
         }
 
@@ -50,10 +41,10 @@ table inet cake-qos-simple {
         chain classify-dscp {
 
 		meta l4proto . th dport vmap @rules_proto_dport
-	
+
 		# IoT devices (uncomment to use)
                 # ether saddr $BULK_MACS goto dscp_set_bulk
-        
+
 	}
 
         map rules_proto_dport {
@@ -89,7 +80,7 @@ table inet cake-qos-simple {
         chain dscp_set_voice {
                 ip dscp set cs4
 		ip6 dscp set cs4
-        }	
+        }
 
 	chain store-dscp-in-conntrack {
 
