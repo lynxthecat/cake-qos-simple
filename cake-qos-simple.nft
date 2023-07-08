@@ -30,7 +30,6 @@ table inet cake-qos-simple {
 
                 # All egress traffic to WAN
                 oifname wan ct mark & 128 == 0 goto classify-and-store-dscp
-
         }
 
 	chain classify-and-store-dscp {
