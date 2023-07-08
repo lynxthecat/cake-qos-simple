@@ -25,7 +25,7 @@ table inet cake-qos-simple {
 
         chain hook-postrouting {
 
-                type filter hook postrouting priority filter
+                type filter hook postrouting priority mangle + 1
 
                 # All egress traffic to WAN
                 oifname wan ct mark & 128 == 0 goto classify-and-store-dscp
