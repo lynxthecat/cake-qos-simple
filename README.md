@@ -65,6 +65,7 @@ opkg update && opkg install tc-tiny kmod-ifb kmod-sched kmod-sched-core kmod-sch
 Next, obtain the service script 'cake-qos-simple':
 ```
 wget -O /etc/init.d/cake-qos-simple "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/cake-qos-simple"
+chmod +x /etc/init.d/cake-qos-simple
 ```
 
 Now edit the cake-qos-simple service script to set interface(s) and CAKE parameters:
@@ -75,6 +76,7 @@ vi /etc/init.d/cake-qos-simple
 Next, install the hotplug script and nftables file:
 ```
 wget -O /etc/hotplug.d/iface/11-cake-qos-simple "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/11-cake-qos-simple"
+chmod +x /etc/hotplug.d/iface/11-cake-qos-simple
 mkdir /usr/share/nftables.d/ruleset-post/
 wget -O /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/cake-qos-simple.nft"
 ```
