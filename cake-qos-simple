@@ -2,9 +2,6 @@
 
 # cake-qos-simple
 
-# author: Lynx
-
-# This simple shell script:
 # 1) sets up an intermediate functional block for use with wan ingress (ifb-wan); and
 # 2) mirrors packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
 # 3) optionally overwrite ECN bits on upload and/or download
@@ -19,6 +16,11 @@
 
 # Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using
 # 'tc -s qdisc show dev wan' and 'tc -s qdisc show dev ifb-wan' to inspect the tinning in cake
+
+# Author and maintainer: lynxthecat
+# Contributors: dave14305
+
+# This simple shell script:
 
 # cake-qos-simple configuration options:
 
