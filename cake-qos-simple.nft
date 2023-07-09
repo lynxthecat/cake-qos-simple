@@ -84,8 +84,8 @@ table inet cake-qos-simple {
 
 	chain store-dscp-in-conntrack {
 
-                ip version 4 ct mark set (@nh,8,8 & 252) >> 2
-                ip6 version 6 ct mark set (@nh,0,16 & 4032) >> 6
+                meta nfproto ipv4 ct mark set (@nh,8,8 & 252) >> 2
+                meta nfproto ipv6 ct mark set (@nh,0,16 & 4032) >> 6
                 ct mark set ct mark or 128
         }
 }
