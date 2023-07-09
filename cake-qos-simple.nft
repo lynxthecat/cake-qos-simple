@@ -28,8 +28,8 @@ table inet cake-qos-simple {
 
                 type filter hook postrouting priority mangle + 1
 
-                # All egress traffic to WAN
-                oifname wan ct mark & 128 == 0 goto classify-and-store-dscp
+                #  classify any new, untracked connections on WAN
+		oifname wan ct state new,untracked goto classify-and-store-dscp
         }
 
 	chain classify-and-store-dscp {
@@ -86,6 +86,5 @@ table inet cake-qos-simple {
 
                 meta nfproto ipv4 ct mark set (@nh,8,8 & 252) >> 2
                 meta nfproto ipv6 ct mark set (@nh,0,16 & 4032) >> 6
-                ct mark set ct mark or 128
         }
 }
