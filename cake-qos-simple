@@ -98,13 +98,22 @@ start()
 		tc filter add dev "${dl_if}" parent 1: protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_dl}" retain 0x3
 	fi
 
+	if [[ -f "/usr/share/nftables.d/ruleset-post/cake-qos-simple.nft" ]]
+	then
+		printf "\nSetting up custom firewall rules."
+		nft -f /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft
+	fi
+
 	printf "\nStarted cake-qos-simple.\n"
 	logger -t cake-qos-simple "Started cake-qos-simple."
 }
 
 stop()
 {
-	printf "Removing ingress handle for interface: '${ul_if}'.\n"
+	printf "Removing custom firewall rules."
+	nft delete table inet cake-qos-simple 2>/dev/null
+
+	printf "\nRemoving ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc del dev "${ul_if}" ingress
 	printf "\nRemoving CAKE on interface: '${ul_if}'.\n"
 	tc qdisc del dev "${ul_if}" root
