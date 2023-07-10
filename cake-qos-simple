@@ -2,6 +2,8 @@
 
 # cake-qos-simple
 
+# This simple shell script:
+
 # 1) sets up an intermediate functional block for use with wan ingress (ifb-wan); and
 # 2) mirrors packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
 # 3) optionally overwrite ECN bits on upload and/or download
@@ -17,41 +19,204 @@
 # Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using
 # 'tc -s qdisc show dev wan' and 'tc -s qdisc show dev ifb-wan' to inspect the tinning in cake
 
-# This simple shell script:
-
-# cake-qos-simple configuration options:
-
-ul_if=wan # upload interface
-dl_if=""  # download interface override (normally left blank and IFB derived for $ul_if ingress)
-
-cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
-cake_dl_rate_Mbps=20 # cake download rate in Mbit/s
-
-cake_ul_options="diffserv4 triple-isolate nat wash ack-filter noatm overhead 0"
-cake_dl_options="diffserv4 triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
-
-overwrite_ecn_val_ul=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-overwrite_ecn_val_dl=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-
-# end of cake-qos-simple configuration options
+PREFIX=/root/cake-qos-simple
 
 START=91
 STOP=4
 
-EXTRA_COMMANDS="status upload download"
+EXTRA_COMMANDS="status upload download generate_config generate_nft_rules"
 EXTRA_HELP="
 	cake-qos-simple custom commands:
 
-	status		show status summary
-	upload		show stats for upload interface
-	download	show stats for download interface"
+	status			show status summary
+	upload			show stats for upload interface
+	download		show stats for download interface
+	generate_config 	generate default config
+	generate_nft_rules	generate default nftables rules"
+
+load_config()
+{
+	mkdir -p "${PREFIX}"
+
+	if [[ -f "${PREFIX}/config" ]]
+	then
+		. "${PREFIX}/config"
+	else
+		printf "ERROR: no config file identified at: ${PREFIX}/config.\n"
+		printf "Generate default config using 'service cake-qos-simple generate_config'.\n"
+		exit
+	fi
+}
+
+check_nft_rules_file()
+{
+	if ! [[ -f "${PREFIX}/nftables.rules" ]]
+	then
+		printf "ERROR: No nftables.rules file setup at: ${PREFIX}/nftables.rules.\n"
+		printf "Generate default nftables.rules file using 'service cake-qos-simple generate_nft_rules'.\n"
+		exit
+	fi
+	printf "Checking validity of nftables.rules file.\n"
+
+	if nft -c -f "${PREFIX}/nftables.rules"
+	then
+		printf "Validity check of nftables.rules file passed.\n"
+	else
+		printf "Validity check of nftables.rules file failed.\n"
+		exit
+	fi
+}
+generate_config()
+{
+	printf "Generating new default config for cake-qos-simple.\n"
+
+	mkdir -p "${PREFIX}"
+
+	cat > "${PREFIX}/config.tmp" <<- EOT
+	# cake-qos-simple configuration options
+
+	ul_if=wan # upload interface
+	dl_if=""  # download interface override (normally left blank and IFB derived for $ul_if ingress)
+
+	cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
+	cake_dl_rate_Mbps=20 # cake download rate in Mbit/s
+
+	cake_ul_options="diffserv4 triple-isolate nat wash ack-filter noatm overhead 0"
+	cake_dl_options="diffserv4 triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
+
+	overwrite_ecn_val_ul=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_ecn_val_dl=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	EOT
+	
+	if [[ -f "${PREFIX}/config" ]]
+	then
+		printf "WARNING: config file ${PREFIX}/config already exists.\n"
+		printf "Saving new config file as: ${PREFIX}/config.new.\n"
+		mv "${PREFIX}/config.tmp" "${PREFIX}/config.new"
+	else
+		mv "${PREFIX}/config.tmp" "${PREFIX}/config"
+	fi
+}
+
+generate_nft_rules()
+{
+	printf "Generating new default nftables rules file for cake-qos-simple.\n"
+
+	mkdir -p "${PREFIX}"
+
+	cat > "${PREFIX}/nftables.rules.tmp" <<-EOT
+	# cake-qos-simple nftables rules
+	
+	# This nft script:
+	# 1) classifies DSCPs (to supplement or replace those set by LAN clients); and
+	# 2) stores DSCPs in conntracks for restoration using tc action ctinfo dscp 63 128
+
+	table inet cake-qos-simple
+	delete table inet cake-qos-simple
+
+	# local interfaces
+	define IFACE_NAMES = {
+		br-lan,
+		br-guest
+	}
+
+	# local MAC addresses to set to bulk (e.g. IoT devices)
+	#define BULK_MACS = {
+	#	XX,
+	#	YY
+	#}
+
+	table inet cake-qos-simple {
+
+		chain hook-postrouting {
+
+			type filter hook postrouting priority mangle + 1
+
+			#  classify any new, untracked connections on WAN
+			oifname wan ct state new,untracked goto classify-and-store-dscp
+		}
+
+		chain classify-and-store-dscp {
+
+			jump classify-dscp
+			jump store-dscp-in-conntrack
+		}
+
+		chain classify-dscp {
+
+			meta l4proto . th dport vmap @rules_proto_dport
+
+			# IoT devices (uncomment to use)
+			# ether saddr \$BULK_MACS goto dscp_set_bulk
+
+		}
+
+		map rules_proto_dport {
+			type inet_proto . inet_service : verdict
+			elements = {
+				tcp . 53 : goto dscp_set_voice,  # DNS
+				udp . 53 : goto dscp_set_voice,  # DNS
+				tcp . 853 : goto dscp_set_voice, # DNS-over-TLS
+				udp . 853 : goto dscp_set_voice, # DNS-over-TLS
+				udp . 123 : goto dscp_set_voice  # NTP
+			}
+		}
+
+		# designate packet for cake tin: bulk
+		chain dscp_set_bulk {
+			ip dscp set cs1
+			ip6 dscp set cs1
+		}
+
+		# designate packet for cake tin: besteffort
+		chain dscp_set_besteffort {
+			ip dscp set cs0
+			ip6 dscp set cs0
+		}
+
+		# designate packet for cake tin: video
+		chain dscp_set_video {
+			ip dscp set cs2
+			ip6 dscp set cs2
+		}
+
+		# designate packet for cake tin: voice
+		chain dscp_set_voice {
+			ip dscp set cs4
+			ip6 dscp set cs4
+		}
+
+		chain store-dscp-in-conntrack {
+
+			meta nfproto ipv4 ct mark set (@nh,8,8 & 252) >> 2
+			meta nfproto ipv6 ct mark set (@nh,0,16 & 4032) >> 6
+		}
+	}
+		EOT
+		
+	if [[ -f "${PREFIX}/nftables.rules" ]]
+	then
+		printf "Warning: nftables rules file ${PREFIX}/nftables.rules already exists.\n"
+		printf "Saving new nftables rules file as: ${PREFIX}/nftables.rules.new.\n"
+		mv "${PREFIX}/nftables.rules.tmp" "${PREFIX}/nftables.rules.new"
+	else
+		mv "${PREFIX}/nftables.rules.tmp" "${PREFIX}/nftables.rules"
+	fi
+}
 
 start()
 {
+	load_config
+
+	check_nft_rules_file
+
 	# call silenced stop() to remove any conflicting elements
 	stop 1
 
-	printf "Setting up ingress handle for interface: '${ul_if}'.\n"
+	printf "\nSetting up nftables rules for cake-qos-simple\n"
+	nft -f "${PREFIX}/nftables.rules"
+	
+	printf "\nSetting up ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc add dev "${ul_if}" handle ffff: ingress
 
 	# if no dl_if specified, then create appropriate IFB and redirect ingress on $ul_if thereto
@@ -108,6 +273,8 @@ stop()
 
 	[[ "${silence}" == "1" ]] && exec 3>&1 4>&2 1> /dev/null 2> /dev/null
 
+	load_config
+
 	printf "Removing ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc del dev "${ul_if}" ingress
 	printf "\nRemoving CAKE on interface: '${ul_if}'.\n"
@@ -128,6 +295,9 @@ stop()
 		tc qdisc del dev "${dl_if}" root
 	fi
 
+	printf "\nRemoving nftables rules for cake-qos-simple\n"
+	nft delete table inet cake-qos-simple 2>/dev/null
+
 	printf "\nStopped cake-qos-simple.\n\n"
 	[[ "${silence}" == "0" ]] && logger -t cake-qos-simple "Stopped cake-qos-simple."
 
@@ -136,16 +306,19 @@ stop()
 
 status()
 {
+	load_config
 	tc qdisc ls
 }
 
 upload()
 {
+	load_config 
 	tc -s qdisc show dev "${ul_if}"
 }
 
 download()
 {
+	load_config
 	[[ -z "${dl_if}" ]] && dl_if="ifb-${ul_if}"
 	tc -s qdisc show dev "${dl_if}"
 }
