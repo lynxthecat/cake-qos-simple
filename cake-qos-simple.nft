@@ -4,9 +4,6 @@
 # 1) classifies DSCPs (to supplement or replace those set by LAN clients); and
 # 2) stores DSCPs in conntracks for restoration using tc action ctinfo dscp 63 128
 
-# Author and maintainer: lynxthecat
-# Contributors: dave14305
-
 table inet cake-qos-simple
 delete table inet cake-qos-simple
 

@@ -17,9 +17,6 @@
 # Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using
 # 'tc -s qdisc show dev wan' and 'tc -s qdisc show dev ifb-wan' to inspect the tinning in cake
 
-# Author and maintainer: lynxthecat
-# Contributors: dave14305
-
 # This simple shell script:
 
 # cake-qos-simple configuration options:
@@ -51,13 +48,13 @@ EXTRA_HELP="
 
 start()
 {
-	# Call silenced stop() to remove any conflicting elements
+	# call silenced stop() to remove any conflicting elements
 	stop 1
 
 	printf "Setting up ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc add dev "${ul_if}" handle ffff: ingress
 
-	# If no dl_if specified, then create appropriate IFB and redirect ingress on $ul_if thereto
+	# if no dl_if specified, then create appropriate IFB and redirect ingress on $ul_if thereto
 	if [[ -z "${dl_if}" ]]
 	then
 
@@ -71,9 +68,9 @@ start()
 		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface: '${ul_if}' and redirecting to IFB interface: '${dl_if}'.\n"
 		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 mirred egress redirect dev "${dl_if}"
 
-	# If $dl_if specified, then skip IFB creation
+	# if $dl_if specified, then skip IFB creation
 	else
-		# For each upload interface ingress packet conditionally restore DSCP from conntrack if available
+		# for each upload interface ingress packet conditionally restore DSCP from conntrack if available
 		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface '${ul_if}'.\n"
 		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63
 	fi
