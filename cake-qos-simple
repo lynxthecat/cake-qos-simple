@@ -51,6 +51,9 @@ EXTRA_HELP="
 
 start()
 {
+	# Call silenced stop() to remove any conflicting elements
+	stop 1
+
 	printf "Setting up ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc add dev "${ul_if}" handle ffff: ingress
 
@@ -104,6 +107,10 @@ start()
 
 stop()
 {
+	silence="${1:-0}" # set to 1 to redirect stdout and stderr to /dev/null for duration of function
+
+	[[ "${silence}" == "1" ]] && exec 3>&1 4>&2 1> /dev/null 2> /dev/null
+
 	printf "Removing ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc del dev "${ul_if}" ingress
 	printf "\nRemoving CAKE on interface: '${ul_if}'.\n"
@@ -125,7 +132,9 @@ stop()
 	fi
 
 	printf "\nStopped cake-qos-simple.\n\n"
-	logger -t cake-qos-simple "Stopped cake-qos-simple."
+	[[ "${silence}" == "0" ]] && logger -t cake-qos-simple "Stopped cake-qos-simple."
+
+	[[ "${silence}" == "1" ]] && exec 1>&3 2>&4
 }
 
 status()
