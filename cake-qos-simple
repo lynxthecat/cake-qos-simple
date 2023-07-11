@@ -24,15 +24,15 @@ PREFIX=/root/cake-qos-simple
 START=91
 STOP=4
 
-EXTRA_COMMANDS="status upload download generate_config generate_nft_rules"
+EXTRA_COMMANDS="status upload download gen_config gen_nft_rules"
 EXTRA_HELP="
 	cake-qos-simple custom commands:
 
 	status			show status summary
 	upload			show stats for upload interface
 	download		show stats for download interface
-	generate_config 	generate default config
-	generate_nft_rules	generate default nftables rules"
+	gen_config 		generate default config file
+	gen_nft_rules		generate default nftables rules file"
 
 load_config()
 {
@@ -43,30 +43,30 @@ load_config()
 		. "${PREFIX}/config"
 	else
 		printf "ERROR: no config file identified at: ${PREFIX}/config.\n"
-		printf "Generate default config using 'service cake-qos-simple generate_config'.\n"
+		printf "Generate default config using 'service cake-qos-simple gen_config'.\n"
 		exit
 	fi
 }
 
 check_nft_rules_file()
 {
-	if ! [[ -f "${PREFIX}/nftables.rules" ]]
+	if ! [[ -f "${PREFIX}/nft.rules" ]]
 	then
-		printf "ERROR: No nftables.rules file setup at: ${PREFIX}/nftables.rules.\n"
-		printf "Generate default nftables.rules file using 'service cake-qos-simple generate_nft_rules'.\n"
+		printf "ERROR: No nft.rules file setup at: ${PREFIX}/nft.rules.\n"
+		printf "Generate default nft.rules file using 'service cake-qos-simple gen_nft_rules'.\n"
 		exit
 	fi
-	printf "Checking validity of nftables.rules file.\n"
+	printf "Checking validity of nft.rules file.\n"
 
-	if nft -c -f "${PREFIX}/nftables.rules"
+	if nft -c -f "${PREFIX}/nft.rules"
 	then
-		printf "Validity check of nftables.rules file passed.\n"
+		printf "Validity check of nft.rules file passed.\n"
 	else
-		printf "Validity check of nftables.rules file failed.\n"
+		printf "Validity check of nft.rules file failed.\n"
 		exit
 	fi
 }
-generate_config()
+gen_config()
 {
 	printf "Generating new default config for cake-qos-simple.\n"
 
@@ -86,25 +86,48 @@ generate_config()
 
 	overwrite_ecn_val_ul=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
 	overwrite_ecn_val_dl=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+
+	# the following nftables variables will be used to generate a default nft.rules file
+
+	nft_rules_vars="# ### START OF CUSTOMISABLE NFT VARS SECTION (DO NOT DELETE THIS LINE) ###
+
+	# correspondence between protocol, destination port and DSCPs
+	define PROTO_DPORT_DSCP_MAP = {
+		tcp . 53 : goto dscp_set_voice,  # DNS
+		udp . 53 : goto dscp_set_voice,  # DNS
+		tcp . 853 : goto dscp_set_voice, # DNS-over-TLS
+		udp . 853 : goto dscp_set_voice, # DNS-over-TLS
+		udp . 123 : goto dscp_set_voice  # NTP
+	}
+	
+	# local MAC addresses to set to bulk (e.g. IoT devices)
+	define BULK_MACS = {
+		00:00:00:00:00:00
+	}
+
+	# ### END OF CUSTOMISABLE NFT VARS SECTION (DO NOT DELETE THIS LINE) ###" 
 	EOT
 	
 	if [[ -f "${PREFIX}/config" ]]
 	then
 		printf "WARNING: config file ${PREFIX}/config already exists.\n"
-		printf "Saving new config file as: ${PREFIX}/config.new.\n"
+		printf "Saving new config file as: '${PREFIX}/config.new'.\n"
 		mv "${PREFIX}/config.tmp" "${PREFIX}/config.new"
 	else
+		printf "Saving new config file as: '${PREFIX}/config'.\n"
 		mv "${PREFIX}/config.tmp" "${PREFIX}/config"
 	fi
 }
 
-generate_nft_rules()
+gen_nft_rules()
 {
-	printf "Generating new default nftables rules file for cake-qos-simple.\n"
+	load_config
+
+	printf "Generating new default nft.rules file for cake-qos-simple.\n"
 
 	mkdir -p "${PREFIX}"
 
-	cat > "${PREFIX}/nftables.rules.tmp" <<-EOT
+	cat > "${PREFIX}/nft.rules.tmp" <<-EOT
 	# cake-qos-simple nftables rules
 	
 	# This nft script:
@@ -114,17 +137,7 @@ generate_nft_rules()
 	table inet cake-qos-simple
 	delete table inet cake-qos-simple
 
-	# local interfaces
-	define IFACE_NAMES = {
-		br-lan,
-		br-guest
-	}
-
-	# local MAC addresses to set to bulk (e.g. IoT devices)
-	#define BULK_MACS = {
-	#	XX,
-	#	YY
-	#}
+	${nft_rules_vars}
 
 	table inet cake-qos-simple {
 
@@ -147,19 +160,13 @@ generate_nft_rules()
 			meta l4proto . th dport vmap @rules_proto_dport
 
 			# IoT devices (uncomment to use)
-			# ether saddr \$BULK_MACS goto dscp_set_bulk
+			ether saddr \$BULK_MACS goto dscp_set_bulk
 
 		}
 
 		map rules_proto_dport {
 			type inet_proto . inet_service : verdict
-			elements = {
-				tcp . 53 : goto dscp_set_voice,  # DNS
-				udp . 53 : goto dscp_set_voice,  # DNS
-				tcp . 853 : goto dscp_set_voice, # DNS-over-TLS
-				udp . 853 : goto dscp_set_voice, # DNS-over-TLS
-				udp . 123 : goto dscp_set_voice  # NTP
-			}
+			elements = \$PROTO_DPORT_DSCP_MAP
 		}
 
 		# designate packet for cake tin: bulk
@@ -194,13 +201,14 @@ generate_nft_rules()
 	}
 		EOT
 		
-	if [[ -f "${PREFIX}/nftables.rules" ]]
+	if [[ -f "${PREFIX}/nft.rules" ]]
 	then
-		printf "Warning: nftables rules file ${PREFIX}/nftables.rules already exists.\n"
-		printf "Saving new nftables rules file as: ${PREFIX}/nftables.rules.new.\n"
-		mv "${PREFIX}/nftables.rules.tmp" "${PREFIX}/nftables.rules.new"
+		printf "Warning: nftables rules file ${PREFIX}/nft.rules already exists.\n"
+		printf "Saving new nftables rules file as: '${PREFIX}/nft.rules.new'.\n"
+		mv "${PREFIX}/nft.rules.tmp" "${PREFIX}/nft.rules.new"
 	else
-		mv "${PREFIX}/nftables.rules.tmp" "${PREFIX}/nftables.rules"
+		printf "Saving new nftables rules file as: '${PREFIX}/nft.rules'.\n"
+		mv "${PREFIX}/nft.rules.tmp" "${PREFIX}/nft.rules"
 	fi
 }
 
@@ -213,8 +221,8 @@ start()
 	# call silenced stop() to remove any conflicting elements
 	stop 1
 
-	printf "\nSetting up nftables rules for cake-qos-simple\n"
-	nft -f "${PREFIX}/nftables.rules"
+	printf "\nSetting up nftables rules for cake-qos-simple using: ${PREFIX}/nft.rules.\n"
+	nft -f "${PREFIX}/nft.rules"
 	
 	printf "\nSetting up ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc add dev "${ul_if}" handle ffff: ingress
