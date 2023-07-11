@@ -5,23 +5,37 @@ cake-qos-simple sets up instances of cake based on wan egress and ingress and pr
 1) DSCPs can be set either by LAN clients and/or by the router on upload and are restored from conntracks on download; and 
 2) cake is set up on upload (wan egress) and download (ifb based on wan) and packets are tinned according to their DSCPs
 
+The principle of operation of cake-qos-simple is as follows:
+
+1) set up an intermediate functional block for use with wan ingress (ifb-wan); and
+2) mirror packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
+3) optionally overwrite ECN bits on upload and/or download
+4) set up cake on wan egress (for upload) and on ifb-wan (for download)
+5) set up appropriate nftables rules
+
+This facilitates the optional use of the diffserv functionality in cake for improving qos when bandwidth is constrained by leveraging connection tracking (conntrack) in Linux.
+
+To make use of this optional diffserv functionality, DSCPs must be:
+a) written to packets on upload by LAN clients or route; and
+b) written to conntracks on upload for restoration on download
+
 ## Service file: 'cake-qos-simple'
 
-The service file 'cake-qos-simple':
+This service script:
 
-1) sets up an intermediate functional block for use with wan ingress (ifb-wan);
-2) redirects packets from wan ingress to ifb-wan having restored DSCPs from the conntracks;
-3) optionally overwrites ecn bits on upload and/or download; and
-4) sets up cake on wan egress (for upload) and on ifb-wan (for download).
+- writes out a default customizable config file
+- writes out a default customizable nftables file
+- creates necessary interfaces/tc calls on start/stop
+- loads/unloads the nftables rules on start/stop
+- checks the nftables rules before loading
 
-DSCPs must be:
+## config
 
-1) written to packets on upload by LAN clients or router (e.g. using cake-qos-simple.nft or otherwise); and
-2) written to conntracks on upload for restoration on download
+cake-qos-simple is configured using a simple configuraiton file kept in /root/cake-qos-simple/
 
-## nftables script: 'cake-qos-simple.nft'
+## nftables script 'nft.rules`
 
-This nftables script provides a template for classifying DSCPs in the router and storing DSCPs set on upload (wan egress) in the router of by LAN clients in conntracks for restoration on download (wan ingress). This diagram is useful to understand the nftables script: 
+cake-qos-simple generated an initial default nftables script nft.rules , which provides a template for classifying DSCPs in the router and storing DSCPs set on upload (wan egress) in the router of by LAN clients in conntracks for restoration on download (wan ingress). This diagram is useful to understand the nftables script: 
 
 ![image](https://user-images.githubusercontent.com/10721999/188932157-881bd4ef-e1ab-46d7-bd1b-966e78f00429.png)
 
@@ -45,15 +59,15 @@ To install:
 - install requisite packages as required
 - place cake-qos-simple in /etc/init.d
 - chmod +x cake-qos-simple
-- edit configuration lines in cake-qos-simple to set interface(s) and CAKE parameters
 - place 11-cake-qos-simple in /etc/hotplug.d/iface/
 - chmod +x 11-cake-qos-simple
-- place cake-qos-simple.nft in /usr/share/nftables.d/ruleset-post/
-- edit cake-qos-simple.nft for your use case
+- generate default config in /root/cake-qos-simple/config using: `service cake-qos-simple gen_config`
+- edit default configuration lines in config to set interface(s), CAKE parameters and nftables variables (will be imported to auto-generated nft.rules file)
+- generate default nftables rules based on config in /root/cake-qos-simple/nft.rules using: `service cake-qos-simple gen_nft_rules`
+- edit default nftables rules in nft.rules as desired
 - service cake-qos-simple enable
 - service cake-qos-simple start
-- service firewall restart
-- verify interfaces (e.g. replace or delete br-lan / br-guest lines as required)
+- verify correct operation by running `service cake-qos-simple status`, `service cake-qos-simple download` and `service cake-qos-simple upload` and optionally by running tcpdump with the -v switch to inspect TOS values in packets
 
 Here is a guide to completing the above steps in your SSH client.
 
@@ -62,39 +76,42 @@ Firstly, install the requisite packages:
 opkg update && opkg install tc-tiny kmod-ifb kmod-sched kmod-sched-core kmod-sched-cake kmod-sched-ctinfo
 ```
 
-Next, obtain the service script 'cake-qos-simple':
+Next, obtain the service script 'cake-qos-simple' and set the executable bit:
 ```
 wget -O /etc/init.d/cake-qos-simple "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/cake-qos-simple"
 chmod +x /etc/init.d/cake-qos-simple
 ```
 
-Now edit the cake-qos-simple service script to set interface(s) and CAKE parameters:
+Next, generate a default config file in /root/cake-qos-simple/:
 ```
-vi /etc/init.d/cake-qos-simple
+service cake-qos-simple gen_config
 ```
 
-Next, install the hotplug script and nftables file:
+Next, edit the cake-qos-simple service script to set interface(s), CAKE parameters and nftables variables:
+```
+vi /root/cake-qos-simple/config
+```
+
+Next, generate a default nft.rules file in /root/cake-qos-simple/:
+```
+service cake-qos-simple gen_nft_rules
+```
+
+Next, edit the cake-qos-simple service script to set interface(s), CAKE parameters and nftables variables:
+```
+vi /root/cake-qos-simple/nft.rules
+```
+
+Next, install the hotplug script and set the exectuable bit:
 ```
 wget -O /etc/hotplug.d/iface/11-cake-qos-simple "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/11-cake-qos-simple"
 chmod +x /etc/hotplug.d/iface/11-cake-qos-simple
-mkdir /usr/share/nftables.d/ruleset-post/
-wget -O /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft "https://raw.githubusercontent.com/lynxthecat/cake-qos-simple/master/cake-qos-simple.nft"
-```
-
-Now edit the nftables file as required:
-```
-vi /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft
-```
-
-Check for errors before restarting the firewall:
-```
-nft -c -f /usr/share/nftables.d/ruleset-post/cake-qos-simple.nft
 ```
 
 And to use cake-qos-simple - see
 
 ```
-root@OpenWrt-1:~# service cake-qos-simple
+root@OpenWrt-1:/# service cake-qos-simple
 Syntax: /etc/init.d/cake-qos-simple [command]
 
 Available commands:
@@ -108,28 +125,36 @@ Available commands:
 
         cake-qos-simple custom commands:
 
-        status          show status summary
-        upload          show stats for upload interface
-        download        show stats for download interface
+        status                  show status summary
+        upload                  show stats for upload interface
+        download                show stats for download interface
+        gen_config              generate default config
+        gen_nft_rules           generate default nftables rules based on config
  ```
 
 So e.g.:
 
 ```
 # Start cake-qos-simple
-/etc/init.d/cake-qos-simple start
+service cake-qos-simple start
 
 # Stop cake-qos-simple
-/etc/init.d/cake-qos-simple stop
+service cake-qos-simple stop
 
 # Check download stats
-/etc/init.d/cake-qos-simple download
+service cake-qos-simple download
 
 # Check upload stats
-/etc/init.d/cake-qos-simple upload
+service cake-qos-simple upload
 
 # Check status
-/etc/init.d/cake-qos-simple status
+service cake-qos-simple status
+
+# Generate default config
+service cake-qos-simple gen_config
+
+# Generate default nft.rules based on config
+service cake-qos-simple gen_nft_rules
 ```
 
 ### Overwriting ECN bits ###
@@ -149,11 +174,22 @@ overwrite_ecn_val_ul=0 # overwrite existing ecn bits with decimal value (e.g. 0,
 overwrite_ecn_val_dl=0 # overwirte existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
 ```
 
-
-
 ### To setup DSCP setting by the router ###
 
-- amend cake-qos-simple.nft as appropriate
+- amend the PROTO_DPORT_DSCP_MAP variable in the config:
+```
+# correspondence between protocol, destination port and DSCPs
+define PROTO_DPORT_DSCP_MAP = {
+        tcp . 53 : goto dscp_set_voice,  # DNS
+        udp . 53 : goto dscp_set_voice,  # DNS
+        tcp . 853 : goto dscp_set_voice, # DNS-over-TLS
+        udp . 853 : goto dscp_set_voice, # DNS-over-TLS
+        udp . 123 : goto dscp_set_voice  # NTP
+}
+```
+as required to assign DSCPs out of bulk, besteffort, video and voice in dependence of protocol 'tcp' or 'udp' and destination port.
+
+- amend nft.rules with any further desired nftables rules. 
 
 This can optionally override anything set by the LAN clients. 
 

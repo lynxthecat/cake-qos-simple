@@ -2,12 +2,13 @@
 
 # cake-qos-simple
 
-# This simple shell script:
+# The principle of operation of cake-qos-simple is as follows:
 
-# 1) sets up an intermediate functional block for use with wan ingress (ifb-wan); and
-# 2) mirrors packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
+# 1) set up an intermediate functional block for use with wan ingress (ifb-wan); and
+# 2) mirror packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
 # 3) optionally overwrite ECN bits on upload and/or download
-# 4) sets up cake on wan egress (for upload) and on ifb-wan (for download)
+# 4) set up cake on wan egress (for upload) and on ifb-wan (for download)
+# 5) set up appropriate nftables rules
 
 # This facilitates the optional use of the diffserv functionality in cake for improving qos when
 # bandwidth is constrained by leveraging connection tracking (conntrack) in Linux.
@@ -18,6 +19,14 @@
 
 # Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using
 # 'tc -s qdisc show dev wan' and 'tc -s qdisc show dev ifb-wan' to inspect the tinning in cake
+
+# This service script:
+
+# - writes out a default customizable config file
+# - writes out a default customizable nftables file
+# - creates necessary interfaces/tc calls on start/stop
+# - loads/unloads the nftables rules on start/stop
+# - checks the nftables rules before loading
 
 PREFIX=/root/cake-qos-simple
 
@@ -31,8 +40,8 @@ EXTRA_HELP="
 	status			show status summary
 	upload			show stats for upload interface
 	download		show stats for download interface
-	gen_config 		generate default config file
-	gen_nft_rules		generate default nftables rules file"
+	gen_config 		generate default config
+	gen_nft_rules		generate default nftables rules based on config"
 
 load_config()
 {
@@ -92,6 +101,8 @@ gen_config()
 	nft_rules_vars="# ### START OF CUSTOMISABLE NFT VARS SECTION (DO NOT DELETE THIS LINE) ###
 
 	# correspondence between protocol, destination port and DSCPs
+	# the format is: 
+	# 'protocol' . 'destination port' . dscp_set_bulk OR dscp_set_besteffort OR dscp_set_video OR dscp_set_voice
 	define PROTO_DPORT_DSCP_MAP = {
 	        tcp . 53 : goto dscp_set_voice,  # DNS
 	        udp . 53 : goto dscp_set_voice,  # DNS
@@ -101,6 +112,7 @@ gen_config()
 	}
 
 	# local MAC addresses to set to bulk (e.g. IoT devices)
+	# replace MAC address below with comma separated entries
 	define BULK_MACS = {
 	        00:00:00:00:00:00
 	}
