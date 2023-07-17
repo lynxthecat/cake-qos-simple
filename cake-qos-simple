@@ -114,7 +114,7 @@ gen_config()
 	# local MAC addresses to set to bulk (e.g. IoT devices)
 	# replace MAC address below with comma separated entries
 	define BULK_MACS = {
-	        00:00:00:00:00:00
+	        02:00:00:00:00:00
 	}
 
 	# ### END OF CUSTOMISABLE NFT VARS SECTION (DO NOT DELETE THIS LINE) ###" 
