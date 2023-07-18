@@ -269,7 +269,7 @@ start()
 	if [[ -n "${overwrite_ecn_val_ul}" ]]
 	then
 		printf "\nSetting up filter to overwrite ecn bits to decimal value: '${overwrite_ecn_val_ul}' on upload.\n"
-		tc filter add dev "${ul_if}" parent 1: prio 2 protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_ul}" retain 0x3
+		tc filter add dev "${ul_if}" parent 1: prio 2 protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_ul}" retain 0x3 pipe csum ip4h
 		tc filter add dev "${ul_if}" parent 1: prio 3 protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_ul}" retain 0x3
 	fi
 
@@ -279,7 +279,7 @@ start()
 	if [[ -n "${overwrite_ecn_val_dl}" ]]
 	then
 		printf "\nSetting up filter to overwrite ecn bits to decimal value: '${overwrite_ecn_val_dl}' on download.\n"
-		tc filter add dev "${dl_if}" parent 1: protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_dl}" retain 0x3
+		tc filter add dev "${dl_if}" parent 1: protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_dl}" retain 0x3 pipe csum ip4h
 		tc filter add dev "${dl_if}" parent 1: protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_dl}" retain 0x3
 	fi
 
