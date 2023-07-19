@@ -264,13 +264,13 @@ start()
 	tc qdisc add dev "${ul_if}" root handle 1: cake bandwidth "${cake_ul_rate_Mbps}Mbit" ${cake_ul_options}
 
 	printf "\nSetting up tc filter to restore DSCPs from conntrack on egress packets on interface '${ul_if}'.\n"
-	tc filter add dev "${ul_if}" parent 1: prio 1 protocol all matchall action ctinfo dscp 63 continue
+	tc filter add dev "${ul_if}" parent 1: protocol all matchall action ctinfo dscp 63 continue
 
 	if [[ -n "${overwrite_ecn_val_ul}" ]]
 	then
 		printf "\nSetting up filter to overwrite ecn bits to decimal value: '${overwrite_ecn_val_ul}' on upload.\n"
-		tc filter add dev "${ul_if}" parent 1: prio 2 protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_ul}" retain 0x3 pipe csum ip4h
-		tc filter add dev "${ul_if}" parent 1: prio 3 protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_ul}" retain 0x3
+		tc filter add dev "${ul_if}" parent 1: protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_ul}" retain 0x3 pipe csum ip4h
+		tc filter add dev "${ul_if}" parent 1: protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_ul}" retain 0x3
 	fi
 
 	printf "\nSetting up CAKE on interface: '${dl_if}' with bandwidth: '${cake_dl_rate_Mbps}Mbit/s' and options: '${cake_dl_options}'.\n"
