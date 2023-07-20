@@ -158,7 +158,7 @@ gen_nft_rules()
 	                type filter hook postrouting priority mangle + 1
 	
 	                #  classify any new, untracked connections on WAN
-	                oifname wan ct state new,untracked goto classify-and-store-dscp
+	                oifname ${ul_if} ct state new,untracked goto classify-and-store-dscp
 	        }
 	
 	        chain classify-and-store-dscp {
