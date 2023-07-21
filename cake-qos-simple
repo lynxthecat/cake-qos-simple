@@ -4,29 +4,30 @@
 
 # The principle of operation of cake-qos-simple is as follows:
 
-# 1) set up an intermediate functional block for use with wan ingress (ifb-wan); and
-# 2) mirror packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
-# 3) optionally overwrite ECN bits on upload and/or download
-# 4) set up cake on wan egress (for upload) and on ifb-wan (for download)
-# 5) set up appropriate nftables rules
+# 1) set up an intermediate functional block for use with wan ingress (ifb-wan);
+# 2) mirror packets from wan ingress to ifb-wan having restored DSCPs from the conntracks;
+# 3) optionally overwrite ECN bits on upload and/or download;
+# 4) set up cake on wan egress (for upload) and on ifb-wan (for download); and
+# 5) set up appropriate nftables rules.
 
 # This facilitates the optional use of the diffserv functionality in cake for improving qos when
 # bandwidth is constrained by leveraging connection tracking (conntrack) in Linux.
 
 # To make use of this optional diffserv functionality, DSCPs must be:
-# a) written to packets on upload by LAN clients or route; and
-# b) written to conntracks on upload for restoration on download
 
-# Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using
+# a) written to packets on upload by LAN clients or route; and
+# b) written to conntracks on upload for restoration on download.
+
+# Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using:
 # 'tc -s qdisc show dev wan' and 'tc -s qdisc show dev ifb-wan' to inspect the tinning in cake
 
 # This service script:
 
-# - writes out a default customizable config file
-# - writes out a default customizable nftables file
-# - creates necessary interfaces/tc calls on start/stop
-# - loads/unloads the nftables rules on start/stop
-# - checks the nftables rules before loading
+# - writes out a default customizable config file;
+# - writes out a default customizable nftables file;
+# - creates necessary interfaces/tc calls on start/stop;
+# - loads/unloads the nftables rules on start/stop; and
+# - checks the nftables rules before loading.
 
 PREFIX=/root/cake-qos-simple
 
@@ -93,8 +94,10 @@ gen_config()
 	cake_ul_options="diffserv4 triple-isolate nat wash ack-filter noatm overhead 0"
 	cake_dl_options="diffserv4 triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
 
-	overwrite_ecn_val_ul=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-	overwrite_ecn_val_dl=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_ul_ect_0_val=0 # overwrite upload ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_ul_ect_1_val=0 # overwrite upload ECT(0) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_dl_ect_0_val=0 # overwrite download ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_dl_ect_1_val=0 # overwrite download ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
 
 	# the following nftables variables will be used to generate a default nft.rules file
 
@@ -266,21 +269,36 @@ start()
 	printf "\nSetting up tc filter to restore DSCPs from conntrack on egress packets on interface '${ul_if}'.\n"
 	tc filter add dev "${ul_if}" parent 1: protocol all matchall action ctinfo dscp 63 continue
 
-	if [[ -n "${overwrite_ecn_val_ul}" ]]
+	if [[ -n "${overwrite_ul_ect_1_val}" ]]
 	then
-		printf "\nSetting up filter to overwrite ecn bits to decimal value: '${overwrite_ecn_val_ul}' on upload.\n"
-		tc filter add dev "${ul_if}" parent 1: protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_ul}" retain 0x3 pipe csum ip4h
-		tc filter add dev "${ul_if}" parent 1: protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_ul}" retain 0x3
+		printf "\nSetting up filters to overwrite upload ECT(1) values with decimal value: '${overwrite_ul_ect_1_val}'.\n"
+		tc filter add dev "${ul_if}" parent 1: protocol ip u32 match ip dsfield 1 0x3 action pedit ex munge ip dsfield set "${overwrite_ul_ect_1_val}" retain 0x3 pipe csum ip4h
+		tc filter add dev "${ul_if}" parent 1: protocol ipv6 u32 match ip6 priority 1 0x3 action pedit ex munge ip6 traffic_class set "${overwrite_ul_ect_1_val}" retain 0x3
+	fi
+
+	if [[ -n "${overwrite_ul_ect_0_val}" ]]
+	then
+		printf "\nSetting up filters to overwrite upload ECT(0) values with decimal value: '${overwrite_ul_ect_0_val}'.\n"
+		tc filter add dev "${ul_if}" parent 1: protocol ip u32 match ip dsfield 2 0x3 action pedit ex munge ip dsfield set "${overwrite_ul_ect_0_val}" retain 0x3 pipe csum ip4h
+		tc filter add dev "${ul_if}" parent 1: protocol ipv6 u32 match ip6 priority 2 0x3 action pedit ex munge ip6 traffic_class set "${overwrite_ul_ect_0_val}" retain 0x3
+
 	fi
 
 	printf "\nSetting up CAKE on interface: '${dl_if}' with bandwidth: '${cake_dl_rate_Mbps}Mbit/s' and options: '${cake_dl_options}'.\n"
 	tc qdisc add dev "${dl_if}" root handle 1: cake bandwidth "${cake_dl_rate_Mbps}Mbit" ${cake_dl_options}
 
-	if [[ -n "${overwrite_ecn_val_dl}" ]]
+	if [[ -n "${overwrite_dl_ect_1_val}" ]]
 	then
-		printf "\nSetting up filter to overwrite ecn bits to decimal value: '${overwrite_ecn_val_dl}' on download.\n"
-		tc filter add dev "${dl_if}" parent 1: protocol ip matchall action pedit ex munge ip dsfield set "${overwrite_ecn_val_dl}" retain 0x3 pipe csum ip4h
-		tc filter add dev "${dl_if}" parent 1: protocol ipv6 matchall action pedit ex munge ip6 traffic_class set "${overwrite_ecn_val_dl}" retain 0x3
+		printf "\nSetting up filters to overwrite download ECT(1) values with decimal value: '${overwrite_dl_ect_1_val}'.\n"
+		tc filter add dev "${dl_if}" parent 1: protocol ip u32 match ip dsfield 1 0x3 action pedit ex munge ip dsfield set "${overwrite_dl_ect_1_val}" retain 0x3 pipe csum ip4h
+		tc filter add dev "${dl_if}" parent 1: protocol ipv6 u32 match ip6 priority 1 0x3 action pedit ex munge ip6 traffic_class set "${overwrite_dl_ect_1_val}" retain 0x3
+	fi
+	
+	if [[ -n "${overwrite_dl_ect_0_val}" ]]
+	then
+		printf "\nSetting up filters to overwrite download ECT(1) values with decimal value: '${overwrite_dl_ect_0_val}'.\n"
+		tc filter add dev "${dl_if}" parent 1: protocol ip u32 match ip dsfield 2 0x3 action pedit ex munge ip dsfield set "${overwrite_dl_ect_0_val}" retain 0x3 pipe csum ip4h
+		tc filter add dev "${dl_if}" parent 1: protocol ipv6 u32 match ip6 priority 2 0x3 action pedit ex munge ip6 traffic_class set "${overwrite_dl_ect_0_val}" retain 0x3
 	fi
 
 	printf "\nStarted cake-qos-simple.\n"
