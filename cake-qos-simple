@@ -36,8 +36,7 @@ STOP=4
 
 EXTRA_COMMANDS="status upload download gen_config gen_nft_rules"
 EXTRA_HELP="
-	cake-qos-simple custom commands:
-
+cake-qos-simple custom commands:
 	status			show status summary
 	upload			show stats for upload interface
 	download		show stats for download interface
