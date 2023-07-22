@@ -44,6 +44,7 @@ EXTRA_HELP="
 	gen_config 		generate default config
 	gen_nft_rules		generate default nftables rules based on config"
 
+
 load_config()
 {
 	mkdir -p "${PREFIX}"
@@ -229,8 +230,6 @@ gen_nft_rules()
 
 start()
 {
-	load_config
-
 	check_nft_rules_file
 
 	# call silenced stop() to remove any conflicting elements
@@ -311,8 +310,6 @@ stop()
 
 	[[ "${silence}" == "1" ]] && exec 3>&1 4>&2 1> /dev/null 2> /dev/null
 
-	load_config
-
 	printf "Removing ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc del dev "${ul_if}" ingress
 	printf "\nRemoving CAKE on interface: '${ul_if}'.\n"
@@ -344,19 +341,21 @@ stop()
 
 status()
 {
-	load_config
 	tc qdisc ls
 }
 
 upload()
 {
-	load_config 
 	tc -s qdisc show dev "${ul_if}"
 }
 
 download()
 {
-	load_config
 	[[ -z "${dl_if}" ]] && dl_if="ifb-${ul_if}"
 	tc -s qdisc show dev "${dl_if}"
 }
+
+if [[ "${action}" != "help" && "${action}" != "gen_config" ]]
+then
+	load_config
+fi
