@@ -64,7 +64,8 @@ To install:
 - generate default config in /root/cake-qos-simple/config using: `service cake-qos-simple gen_config`
 - edit default configuration lines in config to set interface(s), CAKE parameters and nftables variables (will be imported to auto-generated nft.rules file)
 - generate default nftables rules based on config in /root/cake-qos-simple/nft.rules using: `service cake-qos-simple gen_nft_rules`
-- edit default nftables rules in nft.rules as desired
+- optionally edit the default nftables rules in nft.rules as desired
+- if using an OpenWrt version earlier than 23.05, edit nft.rules to replace the lines underneath 'chain store-dscp-in-conntrack' as directed in the comments
 - service cake-qos-simple enable
 - service cake-qos-simple start
 - verify correct operation by running `service cake-qos-simple status`, `service cake-qos-simple download` and `service cake-qos-simple upload` and optionally by running tcpdump with the -v switch to inspect TOS values in packets
@@ -97,7 +98,7 @@ Next, generate a default nft.rules file in /root/cake-qos-simple/:
 service cake-qos-simple gen_nft_rules
 ```
 
-Next, edit the cake-qos-simple service script to set interface(s), CAKE parameters and nftables variables:
+Next, optionally edit the nftables rules and/or if using an OpenWrt version earlier than 23.05, edit nft.rules to replace the lines underneath 'chain store-dscp-in-conntrack' as directed in the comments:
 ```
 vi /root/cake-qos-simple/nft.rules
 ```

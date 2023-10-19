@@ -209,9 +209,11 @@ gen_nft_rules()
 	        }
 	
 	        chain store-dscp-in-conntrack {
-	
-	                meta nfproto ipv4 ct mark set (@nh,8,8 & 252) >> 2
-	                meta nfproto ipv6 ct mark set (@nh,0,16 & 4032) >> 6
+	                ct mark set ip dscp
+	                ct mark set ip6 dscp
+	                # For older versions of nftables (OpenWrt versions prior to 23.05), replace the two lines above with:
+	                # meta nfproto ipv4 ct mark set (@nh,8,8 & 252) >> 2
+	                # meta nfproto ipv6 ct mark set (@nh,0,16 & 4032) >> 6
 	        }
 	}
 	EOT
