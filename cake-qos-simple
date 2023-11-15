@@ -161,7 +161,7 @@ gen_nft_rules()
 	                type filter hook postrouting priority mangle + 1
 	
 	                #  classify any new, untracked connections on WAN
-	                oifname ${ul_if} ct state new,untracked goto classify-and-store-dscp
+	                oifname ${ul_if} ct mark & 128 == 0 goto classify-and-store-dscp
 	        }
 	
 	        chain classify-and-store-dscp {
@@ -209,11 +209,12 @@ gen_nft_rules()
 	        }
 	
 	        chain store-dscp-in-conntrack {
-	                ct mark set ip dscp
-	                ct mark set ip6 dscp
+	                ct mark set ip dscp or 128
+	                ct mark set ip6 dscp or 128
 	                # For older versions of nftables (OpenWrt versions prior to 23.05), replace the two lines above with:
 	                # meta nfproto ipv4 ct mark set (@nh,8,8 & 252) >> 2
 	                # meta nfproto ipv6 ct mark set (@nh,0,16 & 4032) >> 6
+			# ct mark set ct mark or 128
 	        }
 	}
 	EOT
@@ -254,20 +255,20 @@ start()
 		ip link set "${dl_if}" up
 		# For each upload interface ingress packet conditionally restore DSCP from conntrack if available and redirect to IFB
 		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface: '${ul_if}' and redirecting to IFB interface: '${dl_if}'.\n"
-		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 mirred egress redirect dev "${dl_if}"
+		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 128 mirred egress redirect dev "${dl_if}"
 
 	# if $dl_if specified, then skip IFB creation
 	else
 		# for each upload interface ingress packet conditionally restore DSCP from conntrack if available
 		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface '${ul_if}'.\n"
-		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63
+		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 128
 	fi
 
 	printf "\nSetting up CAKE on interface: '${ul_if}' with bandwidth: '${cake_ul_rate_Mbps}Mbit/s' and options: '${cake_ul_options}'.\n"
 	tc qdisc add dev "${ul_if}" root handle 1: cake bandwidth "${cake_ul_rate_Mbps}Mbit" ${cake_ul_options}
 
 	printf "\nSetting up tc filter to restore DSCPs from conntrack on egress packets on interface '${ul_if}'.\n"
-	tc filter add dev "${ul_if}" parent 1: protocol all matchall action ctinfo dscp 63 continue
+	tc filter add dev "${ul_if}" parent 1: protocol all matchall action ctinfo dscp 63 128 continue
 
 	if [[ -n "${overwrite_ul_ect_1_val}" ]]
 	then
