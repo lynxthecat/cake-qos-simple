@@ -94,10 +94,10 @@ gen_config()
 	cake_ul_options="diffserv4 triple-isolate nat wash ack-filter noatm overhead 0"
 	cake_dl_options="diffserv4 triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
 
-	overwrite_ul_ect_0_val=0 # overwrite upload ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-	overwrite_ul_ect_1_val=0 # overwrite upload ECT(0) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-	overwrite_dl_ect_0_val=0 # overwrite download ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-	overwrite_dl_ect_1_val=0 # overwrite download ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_ul_ect_0_val="" # overwrite upload ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_ul_ect_1_val="" # overwrite upload ECT(0) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_dl_ect_0_val="" # overwrite download ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_dl_ect_1_val="" # overwrite download ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
 
 	# the following nftables variables will be used to generate a default nft.rules file
 
