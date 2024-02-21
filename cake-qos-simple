@@ -91,8 +91,13 @@ gen_config()
 	cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
 	cake_dl_rate_Mbps=20 # cake download rate in Mbit/s
 
+	# WAN
 	cake_ul_options="diffserv4 triple-isolate nat wash ack-filter noatm overhead 0"
 	cake_dl_options="diffserv4 triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
+
+	# For DSL routers or pppoe-wan interfaces, Choice this option.
+	#cake_ul_options="diffserv4 dual-srchost nonat wash no-ack-filter split-gso rtt 100ms pppoe-ptm ether-vlan noatm"
+	#cake_dl_options="diffserv4 dual-dsthost nonat nowash ingress no-ack-filter split-gso rtt 100ms noatm overhead 34"
 
 	overwrite_ul_ect_0_val="" # overwrite upload ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
 	overwrite_ul_ect_1_val="" # overwrite upload ECT(0) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
