@@ -1,4 +1,6 @@
-# cake-qos-simple
+# ⚡cake-qos-simple
+
+If you like cake-qos-simple and can benefit from it, then please leave a ⭐ (top right) and become a [stargazer](https://github.com/lynxthecat/cake-qos-simple/stargazers)! And feel free to post any feedback on the official OpenWrt thread [here](https://forum.openwrt.org/t/cake-w-dscps-cake-qos-simple/147087). Thank you for your support.
 
 cake-qos-simple sets up instances of cake based on wan egress and ingress and provides a simple means to leverage the diffserv functionality in cake using DSCPs, which is useful when bandwidth is constrained. 
 
