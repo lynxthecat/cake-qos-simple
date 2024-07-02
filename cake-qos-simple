@@ -113,6 +113,13 @@ gen_config()
 	        udp . 853 : goto dscp_set_voice, # DNS-over-TLS
 	        udp . 123 : goto dscp_set_voice  # NTP
 	}
+	
+	# correspondence between protocol, destination port and DSCPs
+	# the format is: 
+	# 'protocol' . 'source port' . dscp_set_bulk OR dscp_set_besteffort OR dscp_set_video OR dscp_set_voice
+	define PROTO_SPORT_DSCP_MAP = {
+	        udp . 3074 : goto dscp_set_voice
+	}
 
 	# local MAC addresses to set to bulk (e.g. IoT devices)
 	# replace MAC address below with comma separated entries
@@ -173,6 +180,7 @@ gen_nft_rules()
 	        chain classify-dscp {
 	
 	                meta l4proto . th dport vmap @rules_proto_dport
+	                meta l4proto . th sport vmap @rules_proto_sport
 	
 	                # IoT devices (uncomment to use)
 	                ether saddr \$BULK_MACS goto dscp_set_bulk
@@ -182,6 +190,11 @@ gen_nft_rules()
 	        map rules_proto_dport {
 	                type inet_proto . inet_service : verdict
 	                elements = \$PROTO_DPORT_DSCP_MAP
+	        }
+	        
+		map rules_proto_sport {
+	                type inet_proto . inet_service : verdict
+	                elements = \$PROTO_SPORT_DSCP_MAP
 	        }
 	
 	        # designate packet for cake tin: bulk
