@@ -182,12 +182,15 @@ overwrite_ecn_val_dl=0 # overwirte existing ecn bits with decimal value (e.g. 0,
 - amend the PROTO_DPORT_DSCP_MAP variable in the config:
 ```
 # correspondence between protocol, destination port and DSCPs
+# the format is:
+# 'protocol' . 'destination port' . dscp_set_bulk OR dscp_set_besteffort OR dscp_set_video OR dscp_set_voice
+# a port range can be specified using the form: X-Y
 define PROTO_DPORT_DSCP_MAP = {
-        tcp . 53 : goto dscp_set_voice,  # DNS
-        udp . 53 : goto dscp_set_voice,  # DNS
-        tcp . 853 : goto dscp_set_voice, # DNS-over-TLS
-        udp . 853 : goto dscp_set_voice, # DNS-over-TLS
-        udp . 123 : goto dscp_set_voice  # NTP
+	tcp . 53 : goto dscp_set_voice,  # DNS
+	udp . 53 : goto dscp_set_voice,  # DNS
+	tcp . 853 : goto dscp_set_voice, # DNS-over-TLS
+	udp . 853 : goto dscp_set_voice, # DNS-over-TLS
+	udp . 123 : goto dscp_set_voice  # NTP
 }
 ```
 as required to assign DSCPs out of bulk, besteffort, video and voice in dependence of protocol 'tcp' or 'udp' and destination port.
