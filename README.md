@@ -2,9 +2,9 @@
 
 If you like cake-qos-simple and can benefit from it, then please leave a ⭐ (top right) and become a [stargazer](https://github.com/lynxthecat/cake-qos-simple/stargazers)! And feel free to post any feedback on the official OpenWrt thread [here](https://forum.openwrt.org/t/cake-w-dscps-cake-qos-simple/147087). Thank you for your support.
 
-cake-qos-simple sets up instances of cake based on wan egress and ingress and provides a simple means to leverage the diffserv functionality in cake using DSCPs, which is useful when bandwidth is constrained. 
+cake-qos-simple sets up instances of cake based on wan egress and ingress and provides a simple means to leverage the diffserv functionality in cake using DSCPs, which is useful when bandwidth is constrained.
 
-1) DSCPs can be set either by LAN clients and/or by the router on upload and are restored from conntracks on download; and 
+1) DSCPs can be set either by LAN clients and/or by the router on upload and are restored from conntracks on download; and
 2) cake is set up on upload (wan egress) and download (ifb based on wan) and packets are tinned according to their DSCPs
 
 The principle of operation of cake-qos-simple is as follows:
@@ -37,7 +37,7 @@ cake-qos-simple is configured using a simple configuraiton file kept in /root/ca
 
 ## nftables script 'nft.rules`
 
-cake-qos-simple generated an initial default nftables script nft.rules , which provides a template for classifying DSCPs in the router and storing DSCPs set on upload (wan egress) in the router of by LAN clients in conntracks for restoration on download (wan ingress). This diagram is useful to understand the nftables script: 
+cake-qos-simple generated an initial default nftables script nft.rules , which provides a template for classifying DSCPs in the router and storing DSCPs set on upload (wan egress) in the router of by LAN clients in conntracks for restoration on download (wan ingress). This diagram is useful to understand the nftables script:
 
 ![image](https://user-images.githubusercontent.com/10721999/188932157-881bd4ef-e1ab-46d7-bd1b-966e78f00429.png)
 
@@ -162,13 +162,13 @@ service cake-qos-simple gen_nft_rules
 
 ### Overwriting ECN bits ###
 
-There are situations in which it is desirable to prevent cake from marking rather than dropping packets. 
+There are situations in which it is desirable to prevent cake from marking rather than dropping packets.
 
-Firstly, see discussion on OpenWrt forums around [here](https://forum.openwrt.org/t/effect-of-set-tcp-ecn-to-off-on-ecn/63921/13). 
+Firstly, see discussion on OpenWrt forums around [here](https://forum.openwrt.org/t/effect-of-set-tcp-ecn-to-off-on-ecn/63921/13).
 
 Secondly, whenever an ISP bleaches ECN bits (which is common for mobile operators), the bleaching occurs prior to cake on download, but after cake on upload - thus cake is blind to the bleaching in the upload direction, and this means that by default cake will mark packets on upload in response to saturation, which is futile because the ISP ultimately bleaches those markings anyway. So in this situation it strikes me as better to proactively scrub the ECN bits on upload before cake sees the packets to prevent cake form ineffectively marking the ECN bits.
 
-cake-qos-simple facilitates overwriting ECN bits before the cake instances see the packets on upload and/or download. 
+cake-qos-simple facilitates overwriting ECN bits before the cake instances see the packets on upload and/or download.
 
 This is controlled by setting appropriate values for:
 
@@ -195,9 +195,9 @@ define PROTO_DPORT_DSCP_MAP = {
 ```
 as required to assign DSCPs out of bulk, besteffort, video and voice in dependence of protocol 'tcp' or 'udp' and destination port.
 
-- amend nft.rules with any further desired nftables rules. 
+- amend nft.rules with any further desired nftables rules.
 
-This can optionally override anything set by the LAN clients. 
+This can optionally override anything set by the LAN clients.
 
 ### Setting DSCPs in Microsoft Windows Based LAN Clients ###
 
@@ -213,18 +213,117 @@ And then by creating appropriate QoS policies in the Local Group Policy Editor:
 
 ![image](https://user-images.githubusercontent.com/10721999/187747512-4c608e11-92a9-4484-b07f-3695baa98b85.png)
 
+### Setting DSCPs in Linux Based LAN Clients ###
+
+#### Nftables method: match by group
+
+This method is likely the best approach with the least hassle.
+
+Edit `/etc/nftables.conf` to filter based on `gaming` group:
+
+```
+chain output {
+	type filter hook output priority filter;
+	meta skgid gaming ip dscp set ef
+}
+```
+
+And then run:
+
+```
+# Add gaming group
+sudo groupadd gaming
+sudo usermod -a -G gaming <username>
+
+# Logout and log back in
+
+# Make sure nftables is started
+systemctl start nftables
+
+# Instigate network activity by running a process under gaming group
+cd /tmp/
+sg gaming "wget https://releases.ubuntu.com/25.04/ubuntu-25.04-desktop-amd64.iso"
+
+# Check DSCP is EF using Wireshark
+```
+
+![wireshark](https://github.com/user-attachments/assets/e8ec1de6-341b-4573-8357-7fa1ce1b0860)
+
+#### Nftables method: match by user
+
+Edit `/etc/nftables.conf` to filter based on `gaming` user:
+
+```
+chain output {
+	type filter hook output priority filter;
+	meta skuid gaming ip dscp set ef
+}
+```
+
+And then run:
+
+```
+# Add gaming user
+sudo useradd -m -g users gaming
+
+# Logout and log back in
+
+# Make sure nftables is started
+systemctl start nftables
+
+# Instigate network activity by running a process under gaming user
+cd /tmp/
+sudo -u gaming wget https://releases.ubuntu.com/25.04/ubuntu-25.04-desktop-amd64.iso
+
+# Check DSCP is EF using Wireshark
+```
+
+#### Nftables method: match by cgroup
+
+1. Prefix the application you want to run with `systemd-run` and give it a slice/cgroup name (in this case I chose `prioritize`). You need to run your application prefixed with `systemd-run` every time. [1]
+
+```bash
+systemd-run --user --scope --slice=prioritize %command%
+```
+
+2. Query the PID to get the cgroup path. You only need to do this once.
+
+```bash
+> cat /proc/8923/cgroup
+0::/user.slice/user-1000.slice/user@1000.service/prioritize.slice/run-p8808-i8809.scope
+```
+
+3. Add the DSCP tagging rule in the output chain in `/etc/nftables.conf`. You only need to do this once.
+
+```
+    chain output {
+        type filter hook output priority filter; policy accept;
+        socket cgroupv2 level 4 "user.slice/user-1000.slice/user@1000.service/prioritize.slice" ip dscp set ef
+    }
+```
+
+4. Restart `nftables` so that the rule is applied to the slice/cgroup. Unfortunately, you need to do this once every system boot after starting your application because the slice/cgroups are not persistent. [2]
+
+```bash
+systemctl restart nftables
+```
+
+[1]: There's a tool called [cgclassify](https://wiki.archlinux.org/title/Cgroups#Spawning_and_moving_processes) that can move running processes to cgroups if you want to avoid prefixing launches.
+
+[2]: There's supposedly a [tool](https://blog.fraggod.net/2021/08/31/easy-control-over-applications-network-access-using-nftables-and-systemd-cgroup-v2-tree.html) so that step 4 doesn't need to be run for every system boot but I couldn't get it to compile.
+
 ### Verifying Correct Operation and DSCP Handling ###
 
  Verify correct operation and DSCP handling using tcpdump:
- 
+
    ```bash
       opkg update; opkg install tcpdump
       # First check correct flows and DSCPs correctly set by your LAN client on upload
       tcpdump -i wan -vv
       # Second check correct flows and corresponding DSCPs are getting set by router on download
       tcpdump -i ifb-wan -vv
-   ``` 
-   
+   ```
+
 ## VPN
 
 If using a VPN then cake-qos-simple is not appropriate because cake will not see all the flows and so flow fairness will not work properly. Instead check out the following alternatives to deal with mixture of encrypted and unencrypted flows:
