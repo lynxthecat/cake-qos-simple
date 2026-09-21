@@ -5,18 +5,14 @@
 # The principle of operation of cake-qos-simple is as follows:
 
 # 1) set up an intermediate functional block for use with wan ingress (ifb-wan);
-# 2) mirror packets from wan ingress to ifb-wan having restored DSCPs from the conntracks;
-# 3) optionally overwrite ECN bits on upload and/or download;
-# 4) set up cake on wan egress (for upload) and on ifb-wan (for download); and
-# 5) set up appropriate nftables rules.
+# 2) mirror packets from wan ingress to ifb-wan;
+# 3) optionally classify/store DSCPs and restore them from conntracks;
+# 4) optionally overwrite ECN bits on upload and/or download; and
+# 5) set up cake on wan egress (for upload) and on ifb-wan (for download).
 
-# This facilitates the optional use of the diffserv functionality in cake for improving qos when
-# bandwidth is constrained by leveraging connection tracking (conntrack) in Linux.
-
-# To make use of this optional diffserv functionality, DSCPs must be:
-
-# a) written to packets on upload by LAN clients or route; and
-# b) written to conntracks on upload for restoration on download.
+# By default, cake-qos-simple provides a minimal best-effort CAKE/IFB setup.
+# Optional DSCP classification/storage and ctinfo restoration can be enabled
+# by setting enable_dscp_restoration=1 and selecting a CAKE diffserv mode.
 
 # Proper operation can be evaluated using 'tcpdump -i ifb-wan -v' to inspect TOS values and by using:
 # 'tc -s qdisc show dev wan' and 'tc -s qdisc show dev ifb-wan' to inspect the tinning in cake
@@ -56,6 +52,18 @@ load_config()
 		printf "Generate default config using 'service cake-qos-simple gen_config'.\n"
 		exit
 	fi
+
+	# DSCP classification/storage and ctinfo restoration are optional.
+	enable_dscp_restoration="${enable_dscp_restoration:-0}"
+
+	case "${enable_dscp_restoration}" in
+		0|1)
+			;;
+		*)
+			printf "ERROR: enable_dscp_restoration must be 0 or 1.\n"
+			exit 1
+			;;
+	esac
 }
 
 check_nft_rules_file()
@@ -87,16 +95,17 @@ gen_config()
 
 	ul_if=wan # upload interface
 	dl_if=""  # download interface override (normally left blank and IFB derived for $ul_if ingress)
+	enable_dscp_restoration=0 # set to 1 to enable nftables DSCP classification/storage and ctinfo restoration
 
 	cake_ul_rate_Mbps=20  # cake upload rate in Mbit/s
 	cake_dl_rate_Mbps=20 # cake download rate in Mbit/s
 
-	cake_ul_options="diffserv4 triple-isolate nat wash ack-filter noatm overhead 0"
-	cake_dl_options="diffserv4 triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
+	cake_ul_options="besteffort triple-isolate nat wash ack-filter noatm overhead 0"
+	cake_dl_options="besteffort triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
 
-	overwrite_ul_ect_0_val="" # overwrite upload ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-	overwrite_ul_ect_1_val="" # overwrite upload ECT(0) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-	overwrite_dl_ect_0_val="" # overwrite download ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_ul_ect_0_val="" # overwrite upload ECT(0) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_ul_ect_1_val="" # overwrite upload ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+	overwrite_dl_ect_0_val="" # overwrite download ECT(0) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
 	overwrite_dl_ect_1_val="" # overwrite download ECT(1) values with decimal value (e.g. 0, 1, 2, 3), else "" to disable
 
 	# the following nftables variables will be used to generate a default nft.rules file
@@ -234,13 +243,21 @@ gen_nft_rules()
 
 start()
 {
-	check_nft_rules_file
+	if [[ "${enable_dscp_restoration}" == "1" ]]
+	then
+		check_nft_rules_file
+	fi
 
 	# call silenced stop() to remove any conflicting elements
 	stop 1
 
-	printf "\nSetting up nftables rules for cake-qos-simple using: ${PREFIX}/nft.rules.\n"
-	nft -f "${PREFIX}/nft.rules"
+	if [[ "${enable_dscp_restoration}" == "1" ]]
+	then
+		printf "\nSetting up nftables rules for cake-qos-simple using: ${PREFIX}/nft.rules.\n"
+		nft -f "${PREFIX}/nft.rules"
+	else
+		printf "\nDSCP classification/restoration disabled; skipping nftables rules.\n"
+	fi
 	
 	printf "\nSetting up ingress handle for interface: '${ul_if}'.\n"
 	tc qdisc add dev "${ul_if}" handle ffff: ingress
@@ -255,22 +272,35 @@ start()
 		ip link add name ${dl_if} type ifb
 		printf "\nSetting interface: '${dl_if}' up.\n"
 		ip link set "${dl_if}" up
-		# For each upload interface ingress packet conditionally restore DSCP from conntrack if available and redirect to IFB
-		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface: '${ul_if}' and redirecting to IFB interface: '${dl_if}'.\n"
-		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 128 mirred egress redirect dev "${dl_if}"
+		if [[ "${enable_dscp_restoration}" == "1" ]]
+		then
+			# For each upload interface ingress packet conditionally restore DSCP from conntrack if available and redirect to IFB
+			printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface: '${ul_if}' and redirecting to IFB interface: '${dl_if}'.\n"
+			tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 128 mirred egress redirect dev "${dl_if}"
+		else
+			# Minimal path: redirect ingress to IFB without conntrack/DSCP restoration
+			printf "\nSetting up tc filter to redirect ingress packets on interface: '${ul_if}' to IFB interface: '${dl_if}'.\n"
+			tc filter add dev "${ul_if}" parent ffff: protocol all matchall action mirred egress redirect dev "${dl_if}"
+		fi
 
 	# if $dl_if specified, then skip IFB creation
 	else
-		# for each upload interface ingress packet conditionally restore DSCP from conntrack if available
-		printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface '${ul_if}'.\n"
-		tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 128
+		if [[ "${enable_dscp_restoration}" == "1" ]]
+		then
+			# for each upload interface ingress packet conditionally restore DSCP from conntrack if available
+			printf "\nSetting up tc filter to restore DSCPs from conntrack on ingress packets on interface '${ul_if}'.\n"
+			tc filter add dev "${ul_if}" parent ffff: protocol all matchall action ctinfo dscp 63 128
+		fi
 	fi
 
 	printf "\nSetting up CAKE on interface: '${ul_if}' with bandwidth: '${cake_ul_rate_Mbps}Mbit/s' and options: '${cake_ul_options}'.\n"
 	tc qdisc add dev "${ul_if}" root handle 1: cake bandwidth "${cake_ul_rate_Mbps}Mbit" ${cake_ul_options}
 
-	printf "\nSetting up tc filter to restore DSCPs from conntrack on egress packets on interface '${ul_if}'.\n"
-	tc filter add dev "${ul_if}" parent 1: protocol all matchall action ctinfo dscp 63 128 continue
+	if [[ "${enable_dscp_restoration}" == "1" ]]
+	then
+		printf "\nSetting up tc filter to restore DSCPs from conntrack on egress packets on interface '${ul_if}'.\n"
+		tc filter add dev "${ul_if}" parent 1: protocol all matchall action ctinfo dscp 63 128 continue
+	fi
 
 	if [[ -n "${overwrite_ul_ect_1_val}" ]]
 	then

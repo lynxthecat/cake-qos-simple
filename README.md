@@ -2,24 +2,25 @@
 
 If you like cake-qos-simple and can benefit from it, then please leave a ⭐ (top right) and become a [stargazer](https://github.com/lynxthecat/cake-qos-simple/stargazers)! And feel free to post any feedback on the official OpenWrt thread [here](https://forum.openwrt.org/t/cake-w-dscps-cake-qos-simple/147087). Thank you for your support.
 
-cake-qos-simple sets up instances of cake based on wan egress and ingress and provides a simple means to leverage the diffserv functionality in cake using DSCPs, which is useful when bandwidth is constrained. 
-
-1) DSCPs can be set either by LAN clients and/or by the router on upload and are restored from conntracks on download; and 
-2) cake is set up on upload (wan egress) and download (ifb based on wan) and packets are tinned according to their DSCPs
+cake-qos-simple sets up CAKE on WAN egress and ingress (using an IFB for download shaping). By default it provides a minimal best-effort CAKE setup. Optional DSCP classification/restoration can be enabled when diffserv prioritisation is wanted.
 
 The principle of operation of cake-qos-simple is as follows:
 
-1) set up an intermediate functional block for use with wan ingress (ifb-wan); and
-2) mirror packets from wan ingress to ifb-wan having restored DSCPs from the conntracks
-3) optionally overwrite ECN bits on upload and/or download
-4) set up cake on wan egress (for upload) and on ifb-wan (for download)
-5) set up appropriate nftables rules
+1) set up an intermediate functional block for use with wan ingress (ifb-wan);
+2) mirror packets from wan ingress to ifb-wan;
+3) optionally classify/store DSCPs and restore them from conntracks;
+4) optionally overwrite ECN bits on upload and/or download; and
+5) set up cake on wan egress (for upload) and on ifb-wan (for download).
 
-This facilitates the optional use of the diffserv functionality in cake for improving qos when bandwidth is constrained by leveraging connection tracking (conntrack) in Linux.
+The default configuration uses CAKE `besteffort` and does not load cake-qos-simple nftables DSCP classification or ctinfo restoration. This keeps the core installation small.
 
-To make use of this optional diffserv functionality, DSCPs must be:
-a) written to packets on upload by LAN clients or route; and
-b) written to conntracks on upload for restoration on download
+To enable cake-qos-simple DSCP classification/storage and ctinfo restoration, set:
+
+```
+enable_dscp_restoration=1
+```
+
+and select an appropriate CAKE diffserv mode such as `diffserv4` in the upload and download CAKE options. CAKE itself can still honour DSCPs already present on packets whenever a diffserv mode is selected.
 
 ## Service file: 'cake-qos-simple'
 
@@ -37,7 +38,9 @@ cake-qos-simple is configured using a simple configuraiton file kept in /root/ca
 
 ## nftables script 'nft.rules`
 
-cake-qos-simple generated an initial default nftables script nft.rules , which provides a template for classifying DSCPs in the router and storing DSCPs set on upload (wan egress) in the router of by LAN clients in conntracks for restoration on download (wan ingress). This diagram is useful to understand the nftables script: 
+When `enable_dscp_restoration=1`, cake-qos-simple generates and loads an initial default nftables script `nft.rules`, which provides a template for classifying DSCPs in the router and storing DSCPs set on upload (WAN egress) by the router or LAN clients in conntracks for restoration on download (WAN ingress).
+
+When `enable_dscp_restoration=0` (the default), the nftables rules are not required or loaded. This diagram is useful to understand the nftables script when DSCP restoration is enabled:
 
 ![image](https://user-images.githubusercontent.com/10721999/188932157-881bd4ef-e1ab-46d7-bd1b-966e78f00429.png)
 
@@ -45,14 +48,20 @@ Source: https://wiki.nftables.org/wiki-nftables/index.php/Netfilter_hooks
 
 ## Required packages
 
-This script requires at least the following packages:
+The core CAKE/IFB functionality requires:
 
 - **tc-tiny**
 - **kmod-ifb**
-- **kmod-sched**
 - **kmod-sched-core**
 - **kmod-sched-cake**
+
+DSCP restoration using conntrack additionally requires:
+
 - **kmod-sched-ctinfo**
+
+Optional ECN rewriting additionally requires:
+
+- **kmod-sched**
 
 ## Installation on OpenWrt
 
@@ -64,20 +73,27 @@ To install:
 - place 11-cake-qos-simple in /etc/hotplug.d/iface/
 - chmod +x 11-cake-qos-simple
 - generate default config in /root/cake-qos-simple/config using: `service cake-qos-simple gen_config`
-- edit default configuration lines in config to set interface(s), CAKE parameters and nftables variables (will be imported to auto-generated nft.rules file)
-- generate default nftables rules based on config in /root/cake-qos-simple/nft.rules using: `service cake-qos-simple gen_nft_rules`
+- edit default configuration lines in config to set interface(s), CAKE parameters and whether DSCP restoration is enabled
+- when `enable_dscp_restoration=1`, generate default nftables rules based on config in /root/cake-qos-simple/nft.rules using: `service cake-qos-simple gen_nft_rules`
 - optionally edit the default nftables rules in nft.rules as desired
-- if using an OpenWrt version earlier than 23.05, edit nft.rules to replace the lines underneath 'chain store-dscp-in-conntrack' as directed in the comments
+- when `enable_dscp_restoration=1` and using an OpenWrt version earlier than 23.05, edit nft.rules to replace the lines underneath 'chain store-dscp-in-conntrack' as directed in the comments
 - service cake-qos-simple enable
 - service cake-qos-simple start
 - verify correct operation by running `service cake-qos-simple status`, `service cake-qos-simple download` and `service cake-qos-simple upload` and optionally by running tcpdump with the -v switch to inspect TOS values in packets
 
 Here is a guide to completing the above steps in your SSH client.
 
-Firstly, install the requisite packages:
+Firstly, install the core packages:
 ```
-opkg update && opkg install tc-tiny kmod-ifb kmod-sched kmod-sched-core kmod-sched-cake kmod-sched-ctinfo
+apk update && apk add tc-tiny kmod-ifb kmod-sched-core kmod-sched-cake
 ```
+
+If enabling DSCP restoration, additionally install:
+```
+apk add kmod-sched-ctinfo
+```
+
+Install `kmod-sched` as well if using the optional ECN rewriting settings.
 
 Next, obtain the service script 'cake-qos-simple' and set the executable bit:
 ```
@@ -95,14 +111,30 @@ Next, edit the cake-qos-simple service script to set interface(s), CAKE paramete
 vi /root/cake-qos-simple/config
 ```
 
-Next, generate a default nft.rules file in /root/cake-qos-simple/:
+If `enable_dscp_restoration=1`, generate a default nft.rules file in /root/cake-qos-simple/:
 ```
 service cake-qos-simple gen_nft_rules
 ```
 
-Next, optionally edit the nftables rules and/or if using an OpenWrt version earlier than 23.05, edit nft.rules to replace the lines underneath 'chain store-dscp-in-conntrack' as directed in the comments:
+Then optionally edit the default nftables rules and/or, if using an OpenWrt version earlier than 23.05, edit nft.rules to replace the lines underneath 'chain store-dscp-in-conntrack' as directed in the comments:
 ```
 vi /root/cake-qos-simple/nft.rules
+```
+
+The generated configuration already defaults to a minimal best-effort setup:
+```
+enable_dscp_restoration=0
+cake_ul_options="besteffort triple-isolate nat wash ack-filter noatm overhead 0"
+cake_dl_options="besteffort triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
+```
+
+To enable DSCP classification/restoration, install `kmod-sched-ctinfo`, set `enable_dscp_restoration=1`, select a CAKE diffserv mode, and generate `nft.rules`, for example:
+```
+enable_dscp_restoration=1
+cake_ul_options="diffserv4 triple-isolate nat wash ack-filter noatm overhead 0"
+cake_dl_options="diffserv4 triple-isolate nat nowash ingress no-ack-filter noatm overhead 0"
+
+service cake-qos-simple gen_nft_rules
 ```
 
 Next, install the hotplug script and set the exectuable bit:
@@ -162,20 +194,32 @@ service cake-qos-simple gen_nft_rules
 
 ### Overwriting ECN bits ###
 
-There are situations in which it is desirable to prevent cake from marking rather than dropping packets. 
+ECN rewriting is optional and disabled by default. It requires **kmod-sched** because the implementation uses `pedit` (and `csum` for IPv4).
 
-Firstly, see discussion on OpenWrt forums around [here](https://forum.openwrt.org/t/effect-of-set-tcp-ecn-to-off-on-ecn/63921/13). 
-
-Secondly, whenever an ISP bleaches ECN bits (which is common for mobile operators), the bleaching occurs prior to cake on download, but after cake on upload - thus cake is blind to the bleaching in the upload direction, and this means that by default cake will mark packets on upload in response to saturation, which is futile because the ISP ultimately bleaches those markings anyway. So in this situation it strikes me as better to proactively scrub the ECN bits on upload before cake sees the packets to prevent cake form ineffectively marking the ECN bits.
-
-cake-qos-simple facilitates overwriting ECN bits before the cake instances see the packets on upload and/or download. 
-
-This is controlled by setting appropriate values for:
+The four settings operate independently on upload and download and on the two ECN-capable transport values:
 
 ```
-overwrite_ecn_val_ul=0 # overwrite existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
-overwrite_ecn_val_dl=0 # overwirte existing ecn bits with decimal value (e.g. 0, 1, 2, 3), else "" to disable
+overwrite_ul_ect_0_val=""
+overwrite_ul_ect_1_val=""
+overwrite_dl_ect_0_val=""
+overwrite_dl_ect_1_val=""
 ```
+
+Leave a value empty to make no change. Set a value to the decimal ECN field value to write when packets matching that ECT state are seen. The ECN field values are:
+
+- `0` = Not-ECT
+- `1` = ECT(1)
+- `2` = ECT(0)
+- `3` = CE
+
+For example, to clear ECT(0) and ECT(1) on upload so that CAKE drops rather than ECN-marks those packets under congestion:
+
+```
+overwrite_ul_ect_0_val=0
+overwrite_ul_ect_1_val=0
+```
+
+One reason to consider this is an upstream network that bleaches ECN after packets leave the router: CAKE could otherwise mark packets on upload even though those marks will not survive the path. Leave these settings empty unless there is a specific reason to rewrite ECN.
 
 ### To setup DSCP setting by the router ###
 
@@ -218,7 +262,7 @@ And then by creating appropriate QoS policies in the Local Group Policy Editor:
  Verify correct operation and DSCP handling using tcpdump:
  
    ```bash
-      opkg update; opkg install tcpdump
+      apk update && apk add tcpdump
       # First check correct flows and DSCPs correctly set by your LAN client on upload
       tcpdump -i wan -vv
       # Second check correct flows and corresponding DSCPs are getting set by router on download
